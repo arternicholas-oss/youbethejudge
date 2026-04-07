@@ -34,7 +34,8 @@ const ZODIAC = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpi
 const MBTI = ["INTJ","INTP","ENTJ","ENTP","INFJ","INFP","ENFJ","ENFP","ISTJ","ISFJ","ESTJ","ESFJ","ISTP","ISFP","ESTP","ESFP"];
 const LOVE_LANGS = ["Words of Affirmation","Acts of Service","Receiving Gifts","Quality Time","Physical Touch"];
 const ATTACHMENT = ["Secure","Anxious","Avoidant","Fearful-Avoidant"];
-const ARGUMENT_TOPICS = ["Chores & Household","Money & Finances","Parenting","Work","Social Plans","Communication","Future Plans","Food & Lifestyle","Who's Right in General"];
+const ARGUMENT_TOPICS = ["Chores & Household","Money & Finances","Parenting","Work","Social","Communication","Who's Right in General"];
+const RELATIONSHIP_TYPES = ["Friends","Family","Couple","Coworkers","Strangers on the Internet"];
 
 // Fun anonymous name generator
 const ADJECTIVES = ["Curious","Honest","Spicy","Chaotic","Logical","Dramatic","Calm","Bold","Witty","Sassy","Petty","Reasonable","Savage","Sweet"];
@@ -521,6 +522,7 @@ function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNoti
 function SetupScreen({ personA, setPersonA, personB, setPersonB, topic, setTopic, caseName, setCaseName, usePersonality, setUsePersonality, personalityDepth, setPersonalityDepth, judgeMode, setJudgeMode, setScreen }) {
   const MODES = [{id:"funny",icon:"😂",label:"Funny Roast",desc:"Witty ruling + roasts the loser"},{id:"neutral",icon:"⚖️",label:"Neutral Judge",desc:"Calm, fair, impartial"},{id:"safe",icon:"❤️",label:"Relationship-Safe",desc:"Constructive, no winner-shaming"}];
   const [selectedTag, setSelectedTag] = useState("");
+  const [relationship, setRelationship] = useState("");
   return (
     <div style={S.screen} className="fade-in">
       <div style={{textAlign:"center", paddingTop:12}}><h2 style={S.title}>Set the Scene 🎬</h2><p style={S.sub}>Who's arguing and what about?</p></div>
@@ -536,6 +538,13 @@ function SetupScreen({ personA, setPersonA, personB, setPersonB, topic, setTopic
       <div style={S.twoCol}>
         <div style={{...S.card, borderTop:`3px solid ${C.rose}`}}><label style={{...S.label, color:C.rose}}>Person A 🌸</label><input style={S.input} placeholder="Their name" value={personA.name} onChange={e=>setPersonA(p=>({...p,name:e.target.value}))} /></div>
         <div style={{...S.card, borderTop:`3px solid ${C.blue}`}}><label style={{...S.label, color:C.blue}}>Person B 💙</label><input style={S.input} placeholder="Their name" value={personB.name} onChange={e=>setPersonB(p=>({...p,name:e.target.value}))} /></div>
+      </div>
+      <div style={S.card}>
+        <label style={S.label}>Who's Arguing? 👥</label>
+        <select style={{...S.input, fontFamily:"inherit", cursor:"pointer"}} value={relationship} onChange={e=>setRelationship(e.target.value)}>
+          <option value="">Select relationship…</option>
+          {RELATIONSHIP_TYPES.map(r=><option key={r} value={r}>{r}</option>)}
+        </select>
       </div>
       <div style={S.card}>
         <label style={S.label}>Judge Vibe 🎭</label>
