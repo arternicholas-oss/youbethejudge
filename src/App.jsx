@@ -34,7 +34,7 @@ const ZODIAC = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpi
 const MBTI = ["INTJ","INTP","ENTJ","ENTP","INFJ","INFP","ENFJ","ENFP","ISTJ","ISFJ","ESTJ","ESFJ","ISTP","ISFP","ESTP","ESFP"];
 const LOVE_LANGS = ["Words of Affirmation","Acts of Service","Receiving Gifts","Quality Time","Physical Touch"];
 const ATTACHMENT = ["Secure","Anxious","Avoidant","Fearful-Avoidant"];
-const ARGUMENT_TOPICS = ["Chores & Household","Money & Finances","Parenting","Work-Life Balance","Social Plans","Jealousy","Communication","Future Plans","Food & Lifestyle","Who's Right in General"];
+const ARGUMENT_TOPICS = ["Chores & Household","Money & Finances","Parenting","Work","Social Plans","Communication","Future Plans","Food & Lifestyle","Who's Right in General"];
 
 // Fun anonymous name generator
 const ADJECTIVES = ["Curious","Honest","Spicy","Chaotic","Logical","Dramatic","Calm","Bold","Witty","Sassy","Petty","Reasonable","Savage","Sweet"];
@@ -196,7 +196,7 @@ export default function YouBeTheJudge() {
   const getClarifyQuestions = async (sideText, otherSideText, onDone) => {
     setClarifyLoading(true);
     try {
-      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,messages:[{role:"user",content:`You're a warm, curious mediator. Ask 1-2 short clarifying questions about this argument side. Be specific, friendly. Max 15 words each. Max 2 questions.\n\nTheir side: "${sideText}"\n${otherSideText?`Other side: "${otherSideText}"`:""}\n\nRespond ONLY with valid JSON: {"questions":["q1","q2"]}`}]})});
+      const res = await fetch("https://youbethejudge.ai/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,messages:[{role:"user",content:`You're a warm, curious mediator. Ask 1-2 short clarifying questions about this argument side. Be specific, friendly. Max 15 words each. Max 2 questions.\n\nTheir side: "${sideText}"\n${otherSideText?`Other side: "${otherSideText}"`:""}\n\nRespond ONLY with valid JSON: {"questions":["q1","q2"]}`}]})});
       const data = await res.json();
       const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
       onDone(parsed.questions?.slice(0,2)||[]);
@@ -223,7 +223,7 @@ export default function YouBeTheJudge() {
     if (!personA.side||!personB.side) { alert("Both people need to share their side first!"); return; }
     setLoading(true); setScreen(SCREENS.VERDICT);
     try {
-      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:buildPrompt()}]})});
+      const res = await fetch("https://youbethejudge.ai/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:buildPrompt()}]})});
       const data = await res.json();
       const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
       setVerdict(parsed); setShowConfetti(true); setTimeout(()=>setShowConfetti(false),2000);
@@ -320,7 +320,7 @@ export default function YouBeTheJudge() {
   const getAISmartestComment = async (caseId, comments) => {
     if (!comments.length) return;
     try {
-      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:200,messages:[{role:"user",content:`You are evaluating user comments on an argument case. Pick the single most insightful, logically sound comment. Return only the comment id.\n\nComments:\n${comments.map(c=>`ID: ${c.id}\nText: ${c.text}\nTag: ${c.tag}`).join("\n\n")}\n\nRespond ONLY with valid JSON: {"smartest_id":"<id>","funniest_id":"<id>"}`}]})});
+      const res = await fetch("https://youbethejudge.ai/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:200,messages:[{role:"user",content:`You are evaluating user comments on an argument case. Pick the single most insightful, logically sound comment. Return only the comment id.\n\nComments:\n${comments.map(c=>`ID: ${c.id}\nText: ${c.text}\nTag: ${c.tag}`).join("\n\n")}\n\nRespond ONLY with valid JSON: {"smartest_id":"<id>","funniest_id":"<id>"}`}]})});
       const data = await res.json();
       const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
       setCourtCases(prev=>prev.map(c=>c.id===caseId?{...c,aiSmartestId:parsed.smartest_id,aiFunniestId:parsed.funniest_id}:c));
@@ -352,7 +352,7 @@ export default function YouBeTheJudge() {
     if (bClarifyAns?.length) p+=`\nClarifications from B:\n${bClarifyQs.map((q,i)=>`Q: ${q}\nA: ${bClarifyAns[i]||"(skipped)"}`).join("\n")}`;
     p+=`\n\nTONE: ${tones[judgeMode]}\n\nRespond ONLY with valid JSON (no markdown):\n{"winner":"${personA.name||"Person A"} or ${personB.name||"Person B"} or Tie","verdict_headline":"punchy headline under 10 words","ruling":"2-3 sentences","key_deciding_factor":"The single most important reason winner prevailed","strongest_line":"Most compelling quote under 20 words","person_a_score":0-100,"person_b_score":0-100,"person_a_rationality":0-100,"person_b_rationality":0-100,"a_valid_points":["p1","p2"],"b_valid_points":["p1","p2"],"communication_tip":"one actionable tip","roast":"${judgeMode==="funny"?"short roast":""}"}`;
     try {
-      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:p}]})});
+      const res = await fetch("https://youbethejudge.ai/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:p}]})});
       const data = await res.json();
       const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
       setVerdict(parsed); setShowConfetti(true); setTimeout(()=>setShowConfetti(false),2500);
@@ -389,7 +389,7 @@ export default function YouBeTheJudge() {
       <style>{css}</style>
       {screen===SCREENS.HOME && <HomeScreen setScreen={setScreen} history={history} notifications={notifications} showNotifs={showNotifs} setShowNotifs={setShowNotifs} markNotifsRead={markNotifsRead} />}
       {screen===SCREENS.MODE_SELECT && <ModeSelectScreen topic={topic} personA={personA} personB={personB} onSamePhone={()=>{setRemoteMode(false);setScreen(SCREENS.RECORD_A);}} onRemote={()=>{setRemoteMode(true);generateRemoteCode();setScreen(SCREENS.REMOTE_SEND);}} onBack={()=>setScreen(SCREENS.SETUP)} />}
-      {screen===SCREENS.SETUP && <SetupScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} topic={topic} setTopic={setTopic} usePersonality={usePersonality} setUsePersonality={setUsePersonality} personalityDepth={personalityDepth} setPersonalityDepth={setPersonalityDepth} judgeMode={judgeMode} setJudgeMode={setJudgeMode} setScreen={setScreen} />}
+      {screen===SCREENS.SETUP && <SetupScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} topic={topic} setTopic={setTopic} caseName={caseName} setCaseName={setCaseName} usePersonality={usePersonality} setUsePersonality={setUsePersonality} personalityDepth={personalityDepth} setPersonalityDepth={setPersonalityDepth} judgeMode={judgeMode} setJudgeMode={setJudgeMode} setScreen={setScreen} />}
       {screen===SCREENS.REMOTE_SEND && <RemoteSendScreen code={remoteCode} personA={personA} personB={personB} topic={topic} onBack={()=>setScreen(SCREENS.SETUP)} onRecordMySide={()=>setScreen(SCREENS.RECORD_A)} />}
       {screen===SCREENS.REMOTE_WAITING && <RemoteWaitingScreen code={remoteCode} personA={personA} personB={personB} topic={topic} remoteStatus={remoteStatus} onSimulateB={()=>{ setRemoteStatus("submitted"); setTimeout(()=>{setRemoteBSide("Look, I've been very clear about my feelings here. I told them exactly how this made me feel and instead of engaging with what I said, they deflected and made it about something else entirely. The pattern is consistent — I raise an issue, they change the subject. I need them to actually hear me, not just wait for their turn to talk."); setRemoteStatus("ready");},1500); }} onReveal={()=>handleRemoteGetVerdict(remoteBSide, remoteBClarifyQs, remoteBClarifyAns)} />}
       {screen===SCREENS.REMOTE_B_LANDING && <RemoteBLandingScreen code={remoteCode} topic={topic} personBName={personB.name} onStart={()=>setScreen(SCREENS.REMOTE_B_RECORD)} />}
@@ -504,20 +504,34 @@ function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNoti
         <p style={{...S.label, textAlign:"center"}}>Popular topics</p>
         <div style={S.chipsRow}>{ARGUMENT_TOPICS.slice(0,6).map(t=><span key={t} style={S.chip}>{t}</span>)}</div>
       </div>
+
+      <div style={{...S.card, textAlign:"center", background:`linear-gradient(135deg,${C.tealLight},#fff)`, borderColor:`${C.teal}40`}}>
+        <p style={{...S.label, color:C.teal, marginBottom:6}}>📲 Get the App</p>
+        <p style={{fontSize:11, color:C.textLight, marginBottom:12}}>Coming soon to iOS &amp; Android</p>
+        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
+          <button style={{...S.btnGhost, padding:"12px 6px", fontSize:12, opacity:0.85}} className="pop" onClick={()=>alert("📱 Coming soon to the App Store!")}>📱 App Store</button>
+          <button style={{...S.btnGhost, padding:"12px 6px", fontSize:12, opacity:0.85}} className="pop" onClick={()=>alert("🤖 Coming soon to Google Play!")}>🤖 Google Play</button>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ── SETUP ──────────────────────────────────────────────────────
-function SetupScreen({ personA, setPersonA, personB, setPersonB, topic, setTopic, usePersonality, setUsePersonality, personalityDepth, setPersonalityDepth, judgeMode, setJudgeMode, setScreen }) {
+function SetupScreen({ personA, setPersonA, personB, setPersonB, topic, setTopic, caseName, setCaseName, usePersonality, setUsePersonality, personalityDepth, setPersonalityDepth, judgeMode, setJudgeMode, setScreen }) {
   const MODES = [{id:"funny",icon:"😂",label:"Funny Roast",desc:"Witty ruling + roasts the loser"},{id:"neutral",icon:"⚖️",label:"Neutral Judge",desc:"Calm, fair, impartial"},{id:"safe",icon:"❤️",label:"Relationship-Safe",desc:"Constructive, no winner-shaming"}];
+  const [selectedTag, setSelectedTag] = useState("");
   return (
     <div style={S.screen} className="fade-in">
       <div style={{textAlign:"center", paddingTop:12}}><h2 style={S.title}>Set the Scene 🎬</h2><p style={S.sub}>Who's arguing and what about?</p></div>
       <div style={S.card}>
-        <label style={S.label}>What's the argument about?</label>
-        <input style={S.input} placeholder="e.g. who forgot to buy milk" value={topic} onChange={e=>setTopic(e.target.value)} />
-        <div style={S.chipsRow}>{ARGUMENT_TOPICS.map(t=><span key={t} style={{...S.chip, background:topic===t?C.rose:C.surfaceWarm, color:topic===t?"#fff":C.textMid, borderColor:topic===t?C.rose:C.border}} onClick={()=>setTopic(t)}>{t}</span>)}</div>
+        <label style={S.label}>Argument Title 🏷️</label>
+        <input style={S.input} placeholder="e.g. Thermostat Gate" value={caseName} maxLength={100} onChange={e=>setCaseName(e.target.value.slice(0,100))} />
+        <div style={{fontSize:10, color:C.textLight, textAlign:"right", marginTop:4}}>{(caseName||"").length}/100</div>
+        <label style={{...S.label, marginTop:14}}>What's the argument about?</label>
+        <textarea style={{...S.input, minHeight:72, resize:"vertical", fontFamily:"inherit"}} placeholder="e.g. who forgot to buy milk and now we're three days in…" value={topic} onChange={e=>setTopic(e.target.value)} />
+        <label style={{...S.label, marginTop:14}}>Tag a category</label>
+        <div style={S.chipsRow}>{ARGUMENT_TOPICS.map(t=><span key={t} style={{...S.chip, background:selectedTag===t?C.rose:C.surfaceWarm, color:selectedTag===t?"#fff":C.textMid, borderColor:selectedTag===t?C.rose:C.border}} onClick={()=>setSelectedTag(t)}>{t}</span>)}</div>
       </div>
       <div style={S.twoCol}>
         <div style={{...S.card, borderTop:`3px solid ${C.rose}`}}><label style={{...S.label, color:C.rose}}>Person A 🌸</label><input style={S.input} placeholder="Their name" value={personA.name} onChange={e=>setPersonA(p=>({...p,name:e.target.value}))} /></div>
@@ -548,7 +562,7 @@ function SetupScreen({ personA, setPersonA, personB, setPersonB, topic, setTopic
           </div>
         )}
       </div>
-      <button style={S.btnPrimary} className="pop" onClick={()=>setScreen(SCREENS.MODE_SELECT)}>Next: Choose How to Play →</button>
+      <button style={S.btnPrimary} className="pop" onClick={()=>setScreen(SCREENS.MODE_SELECT)}>Next →</button>
     </div>
   );
 }
@@ -605,13 +619,24 @@ function ModeSelectScreen({ topic, personA, personB, onSamePhone, onRemote, onBa
 // ── REMOTE SEND SCREEN (Person A sent, waiting for B) ──────────
 function RemoteSendScreen({ code, personA, personB, topic, onBack, onRecordMySide }) {
   const [copied, setCopied] = useState(false);
-  const link = `youbethejudge.ai/join/${code}`;
+  const link = `https://youbethejudge.ai/join/${code}`;
+  const aName = personA.name || "Someone";
+  const bName = personB.name || "you";
+  const msg = `⚖️ ${aName} wants you to settle an argument on YouBeTheJudge.\n\nTopic: ${topic||"General dispute"}\n\nTap to submit your side (it stays private until both are in):\n${link}`;
 
   const copyLink = () => {
     navigator.clipboard?.writeText(link).catch(()=>{});
     setCopied(true);
     setTimeout(()=>setCopied(false), 2000);
   };
+
+  // sms: works on iOS Safari and Android. iOS uses ?&body=, Android uses ?body=. Use & form which works on both via iOS quirk.
+  const ua = typeof navigator!=="undefined" ? navigator.userAgent : "";
+  const isIOS = /iPhone|iPad|iPod/.test(ua);
+  const smsHref = isIOS
+    ? `sms:&body=${encodeURIComponent(msg)}`
+    : `sms:?body=${encodeURIComponent(msg)}`;
+  const mailHref = `mailto:?subject=${encodeURIComponent(`${aName} wants you to settle an argument`)}&body=${encodeURIComponent(msg)}`;
 
   return (
     <div style={S.screen} className="fade-in">
@@ -625,9 +650,10 @@ function RemoteSendScreen({ code, personA, personB, topic, onBack, onRecordMySid
       <div style={{...S.card, background:`linear-gradient(135deg, ${C.blueLight}, #fff)`, textAlign:"center", padding:24}}>
         <p style={{...S.label, color:C.blue, marginBottom:12}}>Case Code</p>
         <div style={{fontFamily:"'Plus Jakarta Sans',monospace", fontSize:42, fontWeight:800, letterSpacing:8, color:C.blue, marginBottom:16}}>{code}</div>
-        <p style={{fontSize:11, color:C.textLight, marginBottom:16}}>They enter this at youbethejudge.ai/join — or just share the link below</p>
+        <p style={{fontSize:11, color:C.textLight, marginBottom:12}}>They enter this at youbethejudge.ai/join — or tap the link below</p>
+        <a href={link} target="_blank" rel="noopener noreferrer" style={{display:"block", background:"#fff", border:`1.5px solid ${C.blue}60`, borderRadius:14, padding:"12px 14px", color:C.blue, fontSize:13, fontWeight:700, textDecoration:"underline", wordBreak:"break-all", marginBottom:10}}>{link}</a>
         <button style={{...S.btnGhost, borderColor:`${C.blue}60`, color:C.blue, width:"100%", fontSize:13}} className="pop" onClick={copyLink}>
-          {copied ? "✓ Copied!" : `📋 Copy Link — ${link}`}
+          {copied ? "✓ Link copied to clipboard!" : "📋 Copy link"}
         </button>
       </div>
 
@@ -644,10 +670,9 @@ function RemoteSendScreen({ code, personA, personB, topic, onBack, onRecordMySid
       {/* Share options */}
       <div style={S.card}>
         <label style={S.label}>Send via</label>
-        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8}}>
-          {[["💬 iMessage",""],["📱 WhatsApp",""],["📧 Email",""],["📋 Copy Code",""]].map(([label])=>(
-            <button key={label} style={{...S.btnGhost, padding:"10px", fontSize:12, textAlign:"center"}} className="pop" onClick={copyLink}>{label}</button>
-          ))}
+        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
+          <a href={smsHref} style={{...S.btnGhost, padding:"14px 8px", fontSize:13, textAlign:"center", textDecoration:"none", display:"block"}} className="pop">💬 iMessage</a>
+          <a href={mailHref} style={{...S.btnGhost, padding:"14px 8px", fontSize:13, textAlign:"center", textDecoration:"none", display:"block"}} className="pop">📧 Email</a>
         </div>
       </div>
 
@@ -823,7 +848,7 @@ function RecordScreen({ person, setPerson, name, color, colorLight, emoji, recor
   const refineArgument = async () => {
     if (!person.side) return; setRefining(true); setRefined(null);
     try {
-      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,messages:[{role:"user",content:`Make this argument cleaner and more persuasive without changing meaning.\n\nArgument: "${person.side}"\n\nRespond ONLY with valid JSON: {"refined":"improved version","what_changed":"one sentence"}`}]})});
+      const res = await fetch("https://youbethejudge.ai/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,messages:[{role:"user",content:`Make this argument cleaner and more persuasive without changing meaning.\n\nArgument: "${person.side}"\n\nRespond ONLY with valid JSON: {"refined":"improved version","what_changed":"one sentence"}`}]})});
       const data = await res.json();
       setRefined(JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim()));
     } catch(e) { setRefined({error:true}); }
@@ -833,7 +858,7 @@ function RecordScreen({ person, setPerson, name, color, colorLight, emoji, recor
   const suggestPoints = async () => {
     if (!person.side) return; setSuggestingPoints(true);
     try {
-      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:`Suggest 3 additional supporting points.\n\nArgument: "${person.side}"\n${otherPerson?.side?`Other side: "${otherPerson.side}"`:""}\n\nRespond ONLY with valid JSON: {"points":["p1","p2","p3"]}`}]})});
+      const res = await fetch("https://youbethejudge.ai/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:`Suggest 3 additional supporting points.\n\nArgument: "${person.side}"\n${otherPerson?.side?`Other side: "${otherPerson.side}"`:""}\n\nRespond ONLY with valid JSON: {"points":["p1","p2","p3"]}`}]})});
       const data = await res.json();
       setSuggestedPoints(JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim()).points||[]);
     } catch(e) { setSuggestedPoints([]); }
@@ -972,6 +997,139 @@ function PersonalityScreen({ personA, setPersonA, personB, setPersonB, depth, on
 }
 
 // ── VERDICT ────────────────────────────────────────────────────
+// ── SHARE CARD GENERATOR (vertical 1080x1920) ───────────────────
+function _roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function _wrap(ctx,text,x,y,maxW,lh){const words=String(text||"").split(" ");let line="";const lines=[];for(const w of words){const t=line+w+" ";if(ctx.measureText(t).width>maxW&&line){lines.push(line.trim());line=w+" ";}else line=t;}if(line)lines.push(line.trim());lines.forEach((ln,i)=>ctx.fillText(ln,x,y+i*lh));return lines.length*lh;}
+async function generateVerdictShareCard({verdict, personA, personB, caseName, format="image"}) {
+  const W=1080,H=1920;
+  const canvas=document.createElement("canvas");
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext("2d");
+  const isTie=verdict.winner==="Tie"||verdict.winner?.toLowerCase().includes("tie");
+  const winnerIsA=verdict.winner===(personA.name||"Person A");
+  const wColor=isTie?"#D4A574":winnerIsA?"#E8909A":"#7B9FB8";
+  const wBg=isTie?"#FAF3E8":winnerIsA?"#FBE9EC":"#E5EDF3";
+  const aName=personA.name||"Person A", bName=personB.name||"Person B";
+  const sA=verdict.person_a_score||50, sB=verdict.person_b_score||50;
+
+  function drawFrame(p) {
+    // Background gradient
+    const g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,wBg); g.addColorStop(0.6,"#FFFFFF"); g.addColorStop(1,wBg);
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // Decorative border
+    ctx.strokeStyle=wColor+"30"; ctx.lineWidth=8;
+    _roundRect(ctx,30,30,W-60,H-60,40); ctx.stroke();
+
+    // Header brand
+    ctx.fillStyle="#5C4A3D"; ctx.textAlign="center";
+    ctx.font="700 38px -apple-system,system-ui,sans-serif";
+    ctx.fillText("⚖️  YOUBETHEJUDGE.AI", W/2, 130);
+    ctx.fillStyle="#8B7B6F"; ctx.font="600 28px -apple-system,system-ui,sans-serif";
+    ctx.fillText((caseName||"THE VERDICT").toUpperCase(), W/2, 180);
+
+    // Winner badge (animated scale)
+    const scale=Math.min(1, p*1.4);
+    const badgeText=isTie?"⚡ IT'S A TIE":`🏆 ${verdict.winner.toUpperCase()} WINS`;
+    ctx.save();
+    ctx.translate(W/2, 320);
+    ctx.scale(scale, scale);
+    ctx.font="800 60px -apple-system,system-ui,sans-serif";
+    const tw=ctx.measureText(badgeText).width;
+    const bw=tw+100, bh=120;
+    ctx.fillStyle=wColor;
+    _roundRect(ctx,-bw/2,-bh/2,bw,bh,60); ctx.fill();
+    ctx.fillStyle="#FFFFFF";
+    ctx.fillText(badgeText, 0, 22);
+    ctx.restore();
+
+    // Headline
+    ctx.fillStyle=wColor;
+    ctx.font="800 64px -apple-system,system-ui,sans-serif";
+    const headHeight=_wrap(ctx, `"${verdict.verdict_headline||""}"`, W/2, 520, W-160, 80);
+
+    // Score bars (animated count-up)
+    const sy=540+headHeight+80;
+    const animA=Math.round(sA*Math.min(1,p*1.2));
+    const animB=Math.round(sB*Math.min(1,p*1.2));
+    drawScore(aName, animA, "#E8909A", 140, sy);
+    drawScore(bName, animB, "#7B9FB8", 140, sy+170);
+
+    // Key deciding factor card
+    if(verdict.key_deciding_factor) {
+      const ky=sy+360;
+      ctx.fillStyle="#FAF3E8";
+      _roundRect(ctx,80,ky,W-160,290,32); ctx.fill();
+      ctx.strokeStyle="#D4A57460"; ctx.lineWidth=4; ctx.stroke();
+      ctx.fillStyle="#B8954D"; ctx.textAlign="center";
+      ctx.font="700 28px -apple-system,system-ui,sans-serif";
+      ctx.fillText("⚡ KEY DECIDING FACTOR", W/2, ky+58);
+      ctx.fillStyle="#3D2E25";
+      ctx.font="600 38px -apple-system,system-ui,sans-serif";
+      _wrap(ctx, verdict.key_deciding_factor, W/2, ky+125, W-220, 52);
+    }
+
+    // CTA footer
+    ctx.fillStyle="#5C4A3D"; ctx.textAlign="center";
+    ctx.font="600 36px -apple-system,system-ui,sans-serif";
+    ctx.fillText("Settle your fight at", W/2, H-180);
+    ctx.fillStyle=wColor; ctx.font="800 56px -apple-system,system-ui,sans-serif";
+    ctx.fillText("youbethejudge.ai", W/2, H-110);
+  }
+  function drawScore(name, score, color, x, y) {
+    ctx.fillStyle="#3D2E25"; ctx.textAlign="left";
+    ctx.font="700 42px -apple-system,system-ui,sans-serif";
+    ctx.fillText(name, x, y);
+    ctx.fillStyle=color; ctx.textAlign="right";
+    ctx.font="800 48px -apple-system,system-ui,sans-serif";
+    ctx.fillText(`${score}%`, W-x, y);
+    const barW=W-x*2;
+    ctx.fillStyle="#E8DDD0"; _roundRect(ctx,x,y+22,barW,28,14); ctx.fill();
+    ctx.fillStyle=color; _roundRect(ctx,x,y+22,Math.max(28,barW*(score/100)),28,14); ctx.fill();
+  }
+
+  if(format==="image") {
+    drawFrame(1);
+    return await new Promise(res=>canvas.toBlob(b=>res({blob:b,ext:"png",mime:"image/png"}),"image/png",0.95));
+  }
+  // Video: animate over ~4.5s, hold final frame ~1s
+  if(typeof MediaRecorder==="undefined"||!canvas.captureStream) {
+    drawFrame(1);
+    return await new Promise(res=>canvas.toBlob(b=>res({blob:b,ext:"png",mime:"image/png"}),"image/png",0.95));
+  }
+  const stream=canvas.captureStream(30);
+  const candidates=["video/mp4;codecs=avc1.42E01E","video/mp4","video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"];
+  const mime=candidates.find(m=>{try{return MediaRecorder.isTypeSupported(m);}catch{return false;}}) || "video/webm";
+  const rec=new MediaRecorder(stream, {mimeType:mime, videoBitsPerSecond:8_000_000});
+  const chunks=[]; rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+  const stopped=new Promise(r=>rec.onstop=r);
+  rec.start();
+  const start=performance.now(), DUR=4500;
+  await new Promise(resolve=>{
+    function tick(){const t=performance.now()-start;const p=Math.min(1,t/DUR);drawFrame(p);if(p<1)requestAnimationFrame(tick);else resolve();}
+    tick();
+  });
+  await new Promise(r=>setTimeout(r,1100));
+  rec.stop(); await stopped;
+  const blob=new Blob(chunks,{type:mime});
+  const ext=mime.includes("mp4")?"mp4":"webm";
+  return {blob, ext, mime};
+}
+async function shareOrDownload(blob, filename, title) {
+  try {
+    const file=new File([blob], filename, {type:blob.type});
+    if(navigator.canShare && navigator.canShare({files:[file]})) {
+      await navigator.share({files:[file], title, text:"⚖️ Settle your fights at youbethejudge.ai"});
+      return true;
+    }
+  } catch(e){}
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+  return false;
+}
+
 function VerdictScreen({ verdict, loading, personA, personB, judgeMode, showConfetti, showShare, setShowShare, onReset, onSubmitCourt, setScreen, isRemote, caseName, setCaseName, onNameCase }) {
   const [submitModal, setSubmitModal] = useState(false);
   const [nameInput, setNameInput] = useState("");
@@ -1067,22 +1225,47 @@ function VerdictScreen({ verdict, loading, personA, personB, judgeMode, showConf
 
       {submitModal && <SubmitToCourtModal verdict={verdict} personA={personA} personB={personB} onSubmit={(cat,dA,dB)=>{onSubmitCourt(verdict,cat,dA,dB);setSubmitModal(false);setScreen("court");}} onClose={()=>setSubmitModal(false)} />}
       {showShare===true&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(26,20,18,0.5)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999,padding:20}}>
-          <div style={{...S.card, width:"100%", maxWidth:360, textAlign:"center"}}>
-            <h3 style={{...S.title, fontSize:18, marginBottom:12}}>Share this verdict 📤</h3>
-            <div style={{background:`linear-gradient(135deg,${wBg},#fff)`, border:`1.5px solid ${wColor}40`, borderRadius:16, padding:20, margin:"0 0 16px"}}>
-              <div style={{fontSize:28, marginBottom:6}}>⚖️</div>
-              <div style={{color:wColor, fontWeight:800, fontSize:16, marginBottom:4}}>{isTie?"It's a tie!":`${verdict.winner} wins`}</div>
-              <div style={{color:C.textMid, fontSize:12}}>"{verdict.verdict_headline}"</div>
-              {verdict.key_deciding_factor&&<div style={{color:C.textLight, fontSize:10, marginTop:6}}>⚡ {verdict.key_deciding_factor}</div>}
-            </div>
-            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:12}}>
-              {["📋 Copy","📱 Instagram","🐦 Twitter","💬 iMessage"].map(s=><button key={s} style={{...S.btnGhost, padding:"10px", fontSize:11}} onClick={()=>setShowShare(false)}>{s}</button>)}
-            </div>
-            <button style={S.btnGhost} onClick={()=>setShowShare(false)}>Close</button>
-          </div>
-        </div>
+        <ShareModal verdict={verdict} personA={personA} personB={personB} caseName={caseName} wColor={wColor} wBg={wBg} isTie={isTie} onClose={()=>setShowShare(false)} />
       )}
+    </div>
+  );
+}
+
+function ShareModal({ verdict, personA, personB, caseName, wColor, wBg, isTie, onClose }) {
+  const [busy, setBusy] = useState(null); // "image" | "video" | null
+  const [status, setStatus] = useState("");
+  const run = async (format) => {
+    setBusy(format);
+    setStatus(format==="video"?"Recording 5s video…":"Rendering image…");
+    try {
+      const { blob, ext } = await generateVerdictShareCard({ verdict, personA, personB, caseName, format });
+      const slug = (caseName||verdict.verdict_headline||"verdict").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "verdict";
+      const filename = `youbethejudge-${slug}.${ext}`;
+      const shared = await shareOrDownload(blob, filename, "My YouBeTheJudge verdict");
+      setStatus(shared?"Shared! 🎉":"Saved to your device 📥");
+    } catch(e) {
+      setStatus("Couldn't generate — try again");
+    }
+    setBusy(null);
+  };
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(26,20,18,0.5)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999,padding:20}}>
+      <div style={{...S.card, width:"100%", maxWidth:380, textAlign:"center"}}>
+        <h3 style={{...S.title, fontSize:18, marginBottom:6}}>Share this verdict 📤</h3>
+        <p style={{fontSize:11, color:C.textLight, marginBottom:14}}>Vertical 9:16 — perfect for Reels, TikTok, and Stories</p>
+        <div style={{background:`linear-gradient(135deg,${wBg},#fff)`, border:`1.5px solid ${wColor}40`, borderRadius:16, padding:18, margin:"0 0 16px"}}>
+          <div style={{fontSize:26, marginBottom:6}}>⚖️</div>
+          <div style={{color:wColor, fontWeight:800, fontSize:15, marginBottom:4}}>{isTie?"It's a tie!":`${verdict.winner} wins`}</div>
+          <div style={{color:C.textMid, fontSize:12}}>"{verdict.verdict_headline}"</div>
+          {verdict.key_deciding_factor&&<div style={{color:C.textLight, fontSize:10, marginTop:6}}>⚡ {verdict.key_deciding_factor}</div>}
+        </div>
+        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10}}>
+          <button style={{...S.btnSoft, padding:"14px 8px", fontSize:12}} disabled={!!busy} onClick={()=>run("image")}>📸 Save Image</button>
+          <button style={{...S.btnPrimary, padding:"14px 8px", fontSize:12}} disabled={!!busy} onClick={()=>run("video")}>🎬 Save Video</button>
+        </div>
+        {status && <div style={{fontSize:11, color:C.textMid, margin:"6px 0 12px"}}>{busy?"⏳ ":""}{status}</div>}
+        <button style={S.btnGhost} onClick={onClose}>Close</button>
+      </div>
     </div>
   );
 }
