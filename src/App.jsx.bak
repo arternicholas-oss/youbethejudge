@@ -414,6 +414,9 @@ export default function YouBeTheJudge() {
 
 // ── HOME ───────────────────────────────────────────────────────
 function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNotifs, markNotifsRead }) {
+  const [voted, setVoted] = useState({});
+  const debate = DAILY_DEBATES[0];
+  const vote = (id,side) => { if(voted[id]!==undefined) return; setVoted(v=>({...v,[id]:side})); };
   const unread = notifications.filter(n=>!n.read).length;
   const notifIcon = { votes:"🗳️", comment:"💬", top_comment:"🏆" };
 
