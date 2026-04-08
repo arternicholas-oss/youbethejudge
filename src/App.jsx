@@ -391,7 +391,7 @@ export default function YouBeTheJudge() {
       <style>{css}</style>
       {screen===SCREENS.HOME && <HomeScreen setScreen={setScreen} history={history} notifications={notifications} showNotifs={showNotifs} setShowNotifs={setShowNotifs} markNotifsRead={markNotifsRead} />}
       {screen===SCREENS.MODE_SELECT && <ModeSelectScreen topic={topic} personA={personA} personB={personB} onSamePhone={()=>{setRemoteMode(false);setScreen(SCREENS.RECORD_A);}} onRemote={()=>{setRemoteMode(true);generateRemoteCode();setScreen(SCREENS.REMOTE_SEND);}} onBack={()=>setScreen(SCREENS.SETUP)} />}
-      {screen===SCREENS.SETUP && <SetupScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} topic={topic} setTopic={setTopic} caseName={caseName} setCaseName={setCaseName} usePersonality={usePersonality} setUsePersonality={setUsePersonality} personalityDepth={personalityDepth} setPersonalityDepth={setPersonalityDepth} judgeMode={judgeMode} setJudgeMode={setJudgeMode} setScreen={setScreen} />}
+      {screen===SCREENS.SETUP && <SetupScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} topic={topic} setTopic={setTopic} setScreen={setScreen} />}
       {screen===SCREENS.REMOTE_SEND && <RemoteSendScreen code={remoteCode} personA={personA} personB={personB} topic={topic} onBack={()=>setScreen(SCREENS.SETUP)} onRecordMySide={()=>setScreen(SCREENS.RECORD_A)} />}
       {screen===SCREENS.REMOTE_WAITING && <RemoteWaitingScreen code={remoteCode} personA={personA} personB={personB} topic={topic} remoteStatus={remoteStatus} onSimulateB={()=>{ setRemoteStatus("submitted"); setTimeout(()=>{setRemoteBSide("Look, I've been very clear about my feelings here. I told them exactly how this made me feel and instead of engaging with what I said, they deflected and made it about something else entirely. The pattern is consistent — I raise an issue, they change the subject. I need them to actually hear me, not just wait for their turn to talk."); setRemoteStatus("ready");},1500); }} onReveal={()=>handleRemoteGetVerdict(remoteBSide, remoteBClarifyQs, remoteBClarifyAns)} />}
       {screen===SCREENS.REMOTE_B_LANDING && <RemoteBLandingScreen code={remoteCode} topic={topic} personBName={personB.name} onStart={()=>setScreen(SCREENS.REMOTE_B_RECORD)} />}
@@ -474,46 +474,29 @@ function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNoti
 }
 
 // ── SETUP ──────────────────────────────────────────────────────
-function SetupScreen({ personA, setPersonA, personB, setPersonB, topic, setTopic, caseName, setCaseName, usePersonality, setUsePersonality, personalityDepth, setPersonalityDepth, judgeMode, setJudgeMode, setScreen }) {
-  const [selectedTag, setSelectedTag] = useState("");
+function SetupScreen({ personA, setPersonA, personB, setPersonB, topic, setTopic, setScreen }) {
   const [relationship, setRelationship] = useState("");
+  const canContinue = personA.name && personB.name && topic.trim().length > 0;
   return (
     <div style={S.screen} className="fade-in">
-      <div style={{textAlign:"center", paddingTop:12}}><h2 style={S.title}>Set the Scene 🎬</h2><p style={S.sub}>Who's arguing and what about?</p></div>
-      <div style={S.card}>
-        <label style={S.label}>Argument Title 🏷️</label>
-        <input style={S.input} placeholder="e.g. Thermostat Gate" value={caseName} maxLength={100} onChange={e=>setCaseName(e.target.value.slice(0,100))} />
-        <div style={{fontSize:10, color:C.textLight, textAlign:"right", marginTop:4}}>{(caseName||"").length}/100</div>
-        <label style={{...S.label, marginTop:14}}>What's the argument about?</label>
-        <textarea style={{...S.input, minHeight:72, resize:"vertical", fontFamily:"inherit"}} placeholder="e.g. who forgot to buy milk and now we're three days in…" value={topic} onChange={e=>setTopic(e.target.value)} />
-        <label style={{...S.label, marginTop:14}}>Tag a category</label>
-        <div style={S.chipsRow}>{ARGUMENT_TOPICS.map(t=><span key={t} style={{...S.chip, background:selectedTag===t?C.rose:C.surfaceWarm, color:selectedTag===t?"#fff":C.textMid, borderColor:selectedTag===t?C.rose:C.border}} onClick={()=>setSelectedTag(t)}>{t}</span>)}</div>
-      </div>
+      <div style={{textAlign:"center", paddingTop:12}}><h2 style={S.title}>Who's arguing?</h2></div>
       <div style={S.twoCol}>
         <div style={S.card}><label style={S.label}>Person A</label><input style={S.input} placeholder="Their name" value={personA.name} onChange={e=>setPersonA(p=>({...p,name:e.target.value}))} /></div>
         <div style={S.card}><label style={S.label}>Person B</label><input style={S.input} placeholder="Their name" value={personB.name} onChange={e=>setPersonB(p=>({...p,name:e.target.value}))} /></div>
       </div>
       <div style={S.card}>
-        <label style={S.label}>Who's Arguing?</label>
+        <label style={S.label}>Relationship</label>
         <select style={{...S.input, fontFamily:"inherit", cursor:"pointer"}} value={relationship} onChange={e=>setRelationship(e.target.value)}>
           <option value="">Select…</option>
           {RELATIONSHIP_TYPES.map(r=><option key={r} value={r}>{r}</option>)}
         </select>
       </div>
       <div style={S.card}>
-        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-          <div><label style={S.label}>Personality Depth 🔮 <span style={{background:C.gold, color:"#fff", borderRadius:6, padding:"1px 6px", fontSize:8, letterSpacing:1, marginLeft:4}}>PREMIUM</span></label><p style={{...S.sub, fontSize:11}}>Optional · Zodiac, MBTI & more</p></div>
-          <div style={{background:usePersonality?C.rose:C.surfaceWarm, color:usePersonality?"#fff":C.textMid, border:`1.5px solid ${usePersonality?C.rose:C.border}`, borderRadius:20, padding:"7px 16px", fontSize:11, fontWeight:700, cursor:"pointer"}} onClick={()=>setUsePersonality(v=>!v)}>{usePersonality?"ON":"OFF"}</div>
-        </div>
-        {usePersonality && (
-          <div style={{display:"flex", gap:6, marginTop:10, flexWrap:"wrap"}}>
-            {[["zodiac","🌙 Zodiac"],["mbti","🧠 MBTI"],["full","✨ Full Deep Dive"]].map(([v,l])=>(
-              <button key={v} style={{...S.btnGhost, padding:"7px 12px", fontSize:11, background:personalityDepth===v?C.rose:C.surface, color:personalityDepth===v?"#fff":C.textMid, borderColor:personalityDepth===v?C.rose:C.border}} onClick={()=>setPersonalityDepth(v)}>{l}</button>
-            ))}
-          </div>
-        )}
+        <label style={S.label}>What happened?</label>
+        <textarea style={{...S.input, minHeight:96, resize:"vertical", fontFamily:"inherit"}} placeholder="e.g. who forgot to buy milk and now we're three days in…" value={topic} onChange={e=>setTopic(e.target.value)} />
       </div>
-      <button style={S.btnPrimary} className="pop" onClick={()=>setScreen(SCREENS.MODE_SELECT)}>Next →</button>
+      <button style={{...S.btnPrimary, opacity:canContinue?1:0.5}} className="pop" disabled={!canContinue} onClick={()=>setScreen(SCREENS.RECORD_A)}>Continue →</button>
+      <button style={{...S.btnGhost, fontSize:11, opacity:0.7}} className="pop" onClick={()=>setScreen(SCREENS.MODE_SELECT)}>Send to their phone instead</button>
     </div>
   );
 }
@@ -921,11 +904,10 @@ function ClarifyScreen({ name, color, colorLight, emoji, questions, answers, set
           </div>
         ))}
       </div>
-      <p style={{fontSize:11, color:C.textLight, textAlign:"center"}}>Answering helps the judge rule more accurately</p>
-      <div style={S.btnRow}>
-        <button style={S.btnGhost} className="pop" onClick={onBack}>← Back</button>
-        <button style={{...S.btnPrimary, flex:1}} className="pop" onClick={onNext}>{isFinal?"⚖️ Get the Verdict":"Next →"}</button>
-      </div>
+      <p style={{fontSize:11, color:C.textLight, textAlign:"center"}}>Optional — skip anytime</p>
+      <button style={{...S.btnPrimary, width:"100%"}} className="pop" onClick={onNext}>{isFinal?"⚖️ Get the Verdict":"Continue →"}</button>
+      <button style={{...S.btnGhost, width:"100%"}} className="pop" onClick={onNext}>Skip questions</button>
+      <button style={{...S.btnGhost, width:"100%", fontSize:11, opacity:0.7}} className="pop" onClick={onBack}>← Back</button>
     </div>
   );
 }
