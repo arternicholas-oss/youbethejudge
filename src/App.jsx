@@ -875,7 +875,8 @@ function RecordScreen({ person, setPerson, name, color, colorLight, emoji, recor
         </div>
         {person.side && (
           <div style={{marginTop:10}}>
-            <button style={{background:colorLight, color, border:`1.5px solid ${color}40`, borderRadius:10, padding:"8px 14px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", width:"100%"}} className="pop" onClick={refineArgument} disabled={refining}>{refining?"✨ Making it shine...":"✨ Polish my argument"}</button>
+            <button style={{background:colorLight, color, border:`1.5px solid ${color}40`, borderRadius:10, padding:"10px 14px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", width:"100%"}} className="pop" onClick={refineArgument} disabled={refining}>{refining?"Rewording...":"Polish my argument"}</button>
+            <p style={{fontSize:10, color:C.textLight, textAlign:"center", margin:"6px 0 0"}}>In the event you're pissed off and rambling, let A.I organize your thoughts with proper English and grammar.</p>
             {refined&&!refined.error&&(
               <div style={{background:C.tealLight, border:`1.5px solid ${C.teal}40`, borderRadius:14, padding:14, marginTop:10}}>
                 <label style={{...S.label, color:C.teal, fontSize:9}}>✨ Polished version</label>
@@ -890,26 +891,7 @@ function RecordScreen({ person, setPerson, name, color, colorLight, emoji, recor
           </div>
         )}
       </div>
-      <div style={S.card}>
-        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-          <div><label style={S.label}>Need more ammo? 💡</label><p style={{...S.sub, fontSize:11}}>AI suggests points you might've missed</p></div>
-          <button style={{background:C.goldLight, color:C.gold, border:`1.5px solid ${C.gold}40`, borderRadius:10, padding:"7px 12px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit"}} className="pop" onClick={suggestPoints} disabled={suggestingPoints||!person.side}>{suggestingPoints?"...":"Suggest"}</button>
-        </div>
-        {suggestedPoints.length>0&&<div style={{marginTop:10, display:"flex", flexDirection:"column", gap:6}}>{suggestedPoints.map((pt,i)=><div key={i} style={{background:C.goldLight, border:`1px solid ${C.gold}40`, borderRadius:10, padding:"9px 12px", display:"flex", alignItems:"center", gap:8, cursor:"pointer"}} className="pop" onClick={()=>addPoint(pt)}><span style={{fontSize:11, color:C.textMid, flex:1}}>+ {pt}</span><span style={{fontSize:10, color:C.gold, fontWeight:700}}>Add</span></div>)}</div>}
-      </div>
-      <div style={{...S.card, borderLeft:`3px solid ${color}`}}>
-        <label style={{...S.label, color}}>🔁 Add a rebuttal</label>
-        <p style={{...S.sub, fontSize:11, marginBottom:10}}>Thought of something else? Drop it here.</p>
-        <div style={{display:"flex", gap:8, alignItems:"flex-start"}}>
-          <textarea style={{...S.textarea, flex:1, marginBottom:0}} placeholder="One more thing..." value={rebuttalInput} onChange={e=>setRebuttalInput(e.target.value)} rows={2} />
-          <div style={{display:"flex", flexDirection:"column", gap:6}}>
-            <button style={{width:40, height:40, borderRadius:10, border:`1.5px solid ${rebuttalRec?color:C.border}`, background:rebuttalRec?color:C.surfaceWarm, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:rebuttalRec?"#fff":C.textMid}} onClick={rebuttalRec?stopRebuttalVoice:startRebuttalVoice}>{rebuttalRec?"⏹":"🎙"}</button>
-            <button style={{width:40, height:40, borderRadius:10, border:`1.5px solid ${C.border}`, background:C.surfaceWarm, fontSize:20, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:C.textMid}} disabled={!rebuttalInput.trim()} onClick={addRebuttal}>＋</button>
-          </div>
-        </div>
-        {rebuttals.map((r,i)=><div key={i} style={{background:C.surfaceWarm, border:`1px solid ${C.border}`, borderRadius:8, padding:"6px 10px", fontSize:11, color:C.textMid, marginTop:6}}>🔁 {r}</div>)}
-      </div>
-      <div style={S.btnRow}>
+<div style={S.btnRow}>
         <button style={S.btnGhost} className="pop" onClick={onBack}>← Back</button>
         <button style={{...S.btnPrimary, flex:1, opacity:(person.side.length<50||nextLoading)?0.7:1}} className="pop" onClick={onNext} disabled={person.side.length<50||nextLoading}>
           {nextLoading?"🤔 Thinking of questions...":person.side.length<50&&person.side.length>0?`Need ${50-person.side.length} more chars`:"Next →"}
