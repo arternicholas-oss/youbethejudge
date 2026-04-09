@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 // ── DESIGN TOKENS ──────────────────────────────────────────────
 const C = {
@@ -179,6 +179,30 @@ export default function YouBeTheJudge() {
   const [showNotifs, setShowNotifs] = useState(false);
   const recognitionRef = useRef(null);
 
+  // URL routing: detect /join/:code on mount
+  useEffect(() => {
+    const path = window.location.pathname;
+    const match = path.match(/^\/join\/([A-Za-z0-9]+)$/);
+    if (match) {
+      const joinCode = match[1].toUpperCase();
+      setRemoteCode(joinCode);
+      // Fetch case data from backend
+      fetch(`/api/case?code=${joinCode}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) { alert("Case not found. Check your code."); return; }
+          setPersonA(p => ({ ...p, name: data.personAName || "Person A" }));
+          setPersonB(p => ({ ...p, name: data.personBName || "Person B" }));
+          setTopic(data.topic || "");
+          setRemoteMode(true);
+          setScreen(SCREENS.REMOTE_B_LANDING);
+        })
+        .catch(() => alert("Couldn't load case. Try again."));
+      // Clean URL without reload
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
+
   const pushNotification = (type, caseId, message) => {
     setNotifications(prev => [{id:Date.now(), type, caseId, read:false, ts:Date.now(), message}, ...prev]);
   };
@@ -339,10 +363,24 @@ export default function YouBeTheJudge() {
     setScreen(SCREENS.HOME);
   };
 
-  const generateRemoteCode = () => {
-    const code = Math.random().toString(36).substring(2,8).toUpperCase();
-    setRemoteCode(code);
-    return code;
+  const generateRemoteCode = async () => {
+    try {
+      const res = await fetch("/api/case?action=create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          personAName: personA.name || "Person A",
+          personBName: personB.name || "Person B",
+          topic: topic || "",
+        }),
+      });
+      const data = await res.json();
+      setRemoteCode(data.code);
+      return data.code;
+    } catch (e) {
+      alert("Couldn't create case. Try again.");
+      return null;
+    }
   };
 
   const handleRemoteGetVerdict = async (bSide, bClarifyQs, bClarifyAns) => {
@@ -390,15 +428,15 @@ export default function YouBeTheJudge() {
     <div style={S.root}>
       <style>{css}</style>
       {screen===SCREENS.HOME && <HomeScreen setScreen={setScreen} history={history} notifications={notifications} showNotifs={showNotifs} setShowNotifs={setShowNotifs} markNotifsRead={markNotifsRead} />}
-      {screen===SCREENS.MODE_SELECT && <ModeSelectScreen topic={topic} personA={personA} personB={personB} onSamePhone={()=>{setRemoteMode(false);setScreen(SCREENS.RECORD_A);}} onRemote={()=>{setRemoteMode(true);generateRemoteCode();setScreen(SCREENS.REMOTE_SEND);}} onBack={()=>setScreen(SCREENS.SETUP)} />}
+      {screen===SCREENS.MODE_SELECT && <ModeSelectScreen topic={topic} personA={personA} personB={personB} onSamePhone={()=>{setRemoteMode(false);setScreen(SCREENS.RECORD_A);}} onRemote={async()=>{setRemoteMode(true);await generateRemoteCode();setScreen(SCREENS.REMOTE_SEND);}} onBack={()=>setScreen(SCREENS.SETUP)} />}
       {screen===SCREENS.SETUP && <SetupScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} topic={topic} setTopic={setTopic} setScreen={setScreen} />}
       {screen===SCREENS.REMOTE_SEND && <RemoteSendScreen code={remoteCode} personA={personA} personB={personB} topic={topic} onBack={()=>setScreen(SCREENS.SETUP)} onRecordMySide={()=>setScreen(SCREENS.RECORD_A)} />}
-      {screen===SCREENS.REMOTE_WAITING && <RemoteWaitingScreen code={remoteCode} personA={personA} personB={personB} topic={topic} remoteStatus={remoteStatus} onSimulateB={()=>{ setRemoteStatus("submitted"); setTimeout(()=>{setRemoteBSide("Look, I've been very clear about my feelings here. I told them exactly how this made me feel and instead of engaging with what I said, they deflected and made it about something else entirely. The pattern is consistent — I raise an issue, they change the subject. I need them to actually hear me, not just wait for their turn to talk."); setRemoteStatus("ready");},1500); }} onReveal={()=>handleRemoteGetVerdict(remoteBSide, remoteBClarifyQs, remoteBClarifyAns)} />}
+      {screen===SCREENS.REMOTE_WAITING && <RemoteWaitingScreen code={remoteCode} personA={personA} personB={personB} topic={topic} onReveal={(bSide, bCQs, bCAns)=>{setRemoteBSide(bSide);setRemoteBClarifyQs(bCQs||[]);setRemoteBClarifyAns(bCAns||[]);handleRemoteGetVerdict(bSide, bCQs||[], bCAns||[]);}} />}
       {screen===SCREENS.REMOTE_B_LANDING && <RemoteBLandingScreen code={remoteCode} topic={topic} personBName={personB.name} onStart={()=>setScreen(SCREENS.REMOTE_B_RECORD)} />}
-      {screen===SCREENS.REMOTE_B_RECORD && <RemoteBRecordScreen person={personB} setPerson={setPersonB} recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={(side)=>{ getClarifyQuestions(side, personA.side, (qs)=>{ if(qs.length>0){setRemoteBClarifyQs(qs);setRemoteBClarifyAns(new Array(qs.length).fill(""));setScreen(SCREENS.REMOTE_B_CLARIFY);}else{setRemoteBSide(side);setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}});}} topic={topic} />}
-      {screen===SCREENS.REMOTE_B_CLARIFY && <ClarifyScreen name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="" questions={remoteBClarifyQs} answers={remoteBClarifyAns} setAnswers={setRemoteBClarifyAns} onNext={()=>{setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}} onBack={()=>setScreen(SCREENS.REMOTE_B_RECORD)} isFinal />}
-      {screen===SCREENS.RECORD_A && <RecordScreen person={personA} setPerson={setPersonA} name={personA.name||"Person A"} color={C.rose} colorLight={C.roseLight} emoji="" recording={recording&&activeRecorder==="A"} onStart={()=>startVoice("A")} onStop={stopVoice} onNext={()=>{ if(remoteMode){ getClarifyQuestions(personA.side,"",(qs)=>{ if(qs.length>0){setClarifyQsA(qs);setClarifyAnsA(new Array(qs.length).fill(""));setScreen(SCREENS.CLARIFY_A);}else setScreen(SCREENS.REMOTE_WAITING);}); }else handleAfterRecordA(); }} nextLoading={clarifyLoading} onBack={()=>setScreen(remoteMode?SCREENS.REMOTE_SEND:SCREENS.SETUP)} otherPerson={personB} topic={topic} />}
-      {screen===SCREENS.CLARIFY_A && <ClarifyScreen name={personA.name||"Person A"} color={C.rose} colorLight={C.roseLight} emoji="" questions={clarifyQsA} answers={clarifyAnsA} setAnswers={setClarifyAnsA} onNext={()=>remoteMode?setScreen(SCREENS.REMOTE_WAITING):setScreen(SCREENS.RECORD_B)} onBack={()=>setScreen(SCREENS.RECORD_A)} />}
+      {screen===SCREENS.REMOTE_B_RECORD && <RemoteBRecordScreen person={personB} setPerson={setPersonB} recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={(side)=>{ fetch(`/api/case?code=${remoteCode}&action=submit_b`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({side})}).catch(()=>{}); getClarifyQuestions(side, personA.side, (qs)=>{ if(qs.length>0){setRemoteBClarifyQs(qs);setRemoteBClarifyAns(new Array(qs.length).fill(""));setScreen(SCREENS.REMOTE_B_CLARIFY);}else{setRemoteBSide(side);setScreen(SCREENS.REMOTE_B_CLARIFY);}});}} topic={topic} />}
+      {screen===SCREENS.REMOTE_B_CLARIFY && <ClarifyScreen name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="" questions={remoteBClarifyQs} answers={remoteBClarifyAns} setAnswers={setRemoteBClarifyAns} onNext={()=>{fetch(`/api/case?code=${remoteCode}&action=submit_b`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({side:personB.side,clarifyQs:remoteBClarifyQs,clarifyAns:remoteBClarifyAns})}).catch(()=>{});setScreen(SCREENS.HOME);alert("Your side has been submitted! The other person will be notified.");}} onBack={()=>setScreen(SCREENS.REMOTE_B_RECORD)} isFinal />}
+      {screen===SCREENS.RECORD_A && <RecordScreen person={personA} setPerson={setPersonA} name={personA.name||"Person A"} color={C.rose} colorLight={C.roseLight} emoji="" recording={recording&&activeRecorder==="A"} onStart={()=>startVoice("A")} onStop={stopVoice} onNext={()=>{ if(remoteMode){ fetch(`/api/case?code=${remoteCode}&action=submit_a`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({side:personA.side,clarifyQs:clarifyQsA,clarifyAns:clarifyAnsA})}).catch(()=>{}); getClarifyQuestions(personA.side,"",(qs)=>{ if(qs.length>0){setClarifyQsA(qs);setClarifyAnsA(new Array(qs.length).fill(""));setScreen(SCREENS.CLARIFY_A);}else setScreen(SCREENS.REMOTE_WAITING);}); }else handleAfterRecordA(); }} nextLoading={clarifyLoading} onBack={()=>setScreen(remoteMode?SCREENS.REMOTE_SEND:SCREENS.SETUP)} otherPerson={personB} topic={topic} />}
+      {screen===SCREENS.CLARIFY_A && <ClarifyScreen name={personA.name||"Person A"} color={C.rose} colorLight={C.roseLight} emoji="" questions={clarifyQsA} answers={clarifyAnsA} setAnswers={setClarifyAnsA} onNext={()=>{if(remoteMode){fetch(`/api/case?code=${remoteCode}&action=submit_a`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({side:personA.side,clarifyQs:clarifyQsA,clarifyAns:clarifyAnsA})}).catch(()=>{});setScreen(SCREENS.REMOTE_WAITING);}else setScreen(SCREENS.RECORD_B);}} onBack={()=>setScreen(SCREENS.RECORD_A)} />}
       {screen===SCREENS.RECORD_B && <RecordScreen person={personB} setPerson={setPersonB} name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="" recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={handleAfterRecordB} nextLoading={clarifyLoading} onBack={()=>clarifyQsA.length>0?setScreen(SCREENS.CLARIFY_A):setScreen(SCREENS.RECORD_A)} isFinal={!usePersonality} otherPerson={personA} topic={topic} />}
       {screen===SCREENS.CLARIFY_B && <ClarifyScreen name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="" questions={clarifyQsB} answers={clarifyAnsB} setAnswers={setClarifyAnsB} onNext={()=>setScreen(SCREENS.JUDGE_VIBE)} onBack={()=>setScreen(SCREENS.RECORD_B)} isFinal />}
       {screen===SCREENS.JUDGE_VIBE && <JudgeVibeScreen judgeMode={judgeMode} setJudgeMode={setJudgeMode} onNext={()=>usePersonality?setScreen(SCREENS.PERSONALITY):getVerdict()} onBack={()=>clarifyQsB.length>0?setScreen(SCREENS.CLARIFY_B):setScreen(SCREENS.RECORD_B)} />}
@@ -644,76 +682,66 @@ function RemoteSendScreen({ code, personA, personB, topic, onBack, onRecordMySid
   );
 }
 
-// ── REMOTE WAITING SCREEN ──────────────────────────────────────
-function RemoteWaitingScreen({ code, personA, personB, topic, remoteStatus, onSimulateB, onReveal }) {
-  const [revealed, setRevealed] = useState(false);
+// ── REMOTE WAITING SCREEN (polls backend) ─────────────────────
+function RemoteWaitingScreen({ code, personA, personB, topic, onReveal }) {
+  const [status, setStatus] = useState("waiting"); // waiting | both_submitted
+  const [caseData, setCaseData] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/case?code=${code}`);
+        const data = await res.json();
+        if (!active) return;
+        setCaseData(data);
+        if (data.status === "both_submitted") { setStatus("both_submitted"); return; }
+      } catch (e) {}
+      if (active) setTimeout(poll, 3000);
+    };
+    poll();
+    return () => { active = false; };
+  }, [code]);
 
   const handleReveal = () => {
-    setRevealed(true);
-    onReveal();
+    if (caseData) onReveal(caseData.sideB, caseData.clarifyQsB, caseData.clarifyAnsB);
   };
+
+  const bReady = status === "both_submitted";
 
   return (
     <div style={S.screen} className="fade-in">
       <div style={{textAlign:"center", paddingTop:16}}>
-        <div style={{fontSize:44, marginBottom:8}} className={remoteStatus==="waiting"?"spin-fun":""}>
-          {remoteStatus==="waiting"?"⏳":remoteStatus==="submitted"?"🔒":"✅"}
-        </div>
-        <h2 style={S.title}>
-          {remoteStatus==="waiting" ? `Waiting for ${personB.name||"Person B"}…` :
-           remoteStatus==="submitted" ? "Submission received!" :
-           "Both sides are in! 🎉"}
-        </h2>
-        <p style={S.sub}>
-          {remoteStatus==="waiting" ? `You're locked in. ${personB.name||"Person B"} hasn't submitted yet.` :
-           remoteStatus==="submitted" ? "Processing their side…" :
-           "Neither of you has seen the other's argument. Ready for the simultaneous reveal?"}
-        </p>
+        <div style={{fontSize:44, marginBottom:8}} className={!bReady?"spin-fun":""}>{bReady?"✅":"⏳"}</div>
+        <h2 style={S.title}>{bReady?"Both sides are in!": `Waiting for ${personB.name||"Person B"}…`}</h2>
+        <p style={S.sub}>{bReady?"Ready for the simultaneous reveal?":`${personB.name||"Person B"} hasn't submitted yet.`}</p>
       </div>
 
-      {/* Status card */}
       <div style={S.card}>
         <div style={{display:"flex", flexDirection:"column", gap:10}}>
           <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:C.roseLight, borderRadius:12, border:`1px solid ${C.rose}40`}}>
-            <div style={{display:"flex", gap:8, alignItems:"center"}}>
-              <span style={{fontSize:16}}></span>
-              <span style={{fontSize:13, fontWeight:700, color:C.text}}>{personA.name||"Person A"} (you)</span>
-            </div>
-            <span style={{background:C.teal, color:"#fff", borderRadius:8, fontSize:10, fontWeight:700, padding:"3px 9px"}}>✓ Submitted</span>
+            <span style={{fontSize:13, fontWeight:700, color:C.text}}>{personA.name||"Person A"} (you)</span>
+            <span style={{background:C.teal, color:"#fff", borderRadius:8, fontSize:10, fontWeight:700, padding:"3px 9px"}}>Submitted</span>
           </div>
-          <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:remoteStatus==="waiting"?C.surfaceWarm:remoteStatus==="submitted"?C.goldLight:C.tealLight, borderRadius:12, border:`1px solid ${remoteStatus==="waiting"?C.border:remoteStatus==="submitted"?`${C.gold}40`:`${C.teal}40`}`}}>
-            <div style={{display:"flex", gap:8, alignItems:"center"}}>
-              <span style={{fontSize:16}}></span>
-              <span style={{fontSize:13, fontWeight:700, color:C.text}}>{personB.name||"Person B"}</span>
-            </div>
-            {remoteStatus==="waiting" && <span style={{background:C.gold, color:"#fff", borderRadius:8, fontSize:10, fontWeight:700, padding:"3px 9px"}}>⏳ Waiting…</span>}
-            {remoteStatus==="submitted" && <span style={{background:C.gold, color:"#fff", borderRadius:8, fontSize:10, fontWeight:700, padding:"3px 9px"}}>🔄 Processing…</span>}
-            {remoteStatus==="ready" && <span style={{background:C.teal, color:"#fff", borderRadius:8, fontSize:10, fontWeight:700, padding:"3px 9px"}}>✓ Submitted</span>}
+          <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:bReady?C.tealLight:C.surfaceWarm, borderRadius:12, border:`1px solid ${bReady?`${C.teal}40`:C.border}`}}>
+            <span style={{fontSize:13, fontWeight:700, color:C.text}}>{personB.name||"Person B"}</span>
+            <span style={{background:bReady?C.teal:C.gold, color:"#fff", borderRadius:8, fontSize:10, fontWeight:700, padding:"3px 9px"}}>{bReady?"Submitted":"Waiting…"}</span>
           </div>
         </div>
       </div>
 
-      {remoteStatus==="waiting" && (
-        <>
-          <div style={{...S.card, background:C.surfaceWarm, textAlign:"center"}}>
-            <p style={{fontSize:12, color:C.textMid, lineHeight:1.6, marginBottom:10}}>Share the code again if they need it:</p>
-            <div style={{fontFamily:"monospace", fontSize:32, fontWeight:800, letterSpacing:6, color:C.blue}}>{code}</div>
-          </div>
-          {/* Demo button for prototype */}
-          <button style={{...S.btnGhost, fontSize:11, color:C.textLight, borderColor:C.border}} className="pop" onClick={onSimulateB}>
-            🧪 Demo: Simulate Person B submitting
-          </button>
-        </>
+      {!bReady && (
+        <div style={{...S.card, background:C.surfaceWarm, textAlign:"center"}}>
+          <p style={{fontSize:12, color:C.textMid, lineHeight:1.6, marginBottom:10}}>Share the code if they need it:</p>
+          <div style={{fontFamily:"monospace", fontSize:32, fontWeight:800, letterSpacing:6, color:C.blue}}>{code}</div>
+        </div>
       )}
 
-      {remoteStatus==="ready" && !revealed && (
+      {bReady && (
         <div style={{...S.card, background:`linear-gradient(135deg, ${C.roseLight}, ${C.blueLight})`, textAlign:"center", padding:24}}>
-          <div style={{fontSize:36, marginBottom:10}}>🔒 → ⚖️</div>
           <h3 style={{fontSize:17, fontWeight:800, color:C.text, marginBottom:8}}>Sealed. Ready to reveal.</h3>
-          <p style={{fontSize:12, color:C.textMid, lineHeight:1.6, marginBottom:16}}>The verdict drops the moment you tap. If {personB.name||"Person B"} is with you, do it together. If not, the verdict card is shareable instantly after.</p>
-          <button style={{...S.btnPrimary, fontSize:15, padding:"16px"}} className="pop" onClick={handleReveal}>
-            ⚖️ Drop the Verdict
-          </button>
+          <p style={{fontSize:12, color:C.textMid, lineHeight:1.6, marginBottom:16}}>The verdict drops the moment you tap.</p>
+          <button style={{...S.btnPrimary, fontSize:15, padding:"16px"}} className="pop" onClick={handleReveal}>Drop the Verdict</button>
         </div>
       )}
     </div>
