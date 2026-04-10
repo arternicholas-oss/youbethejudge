@@ -3,6 +3,28 @@
 
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
+const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_PHONE = process.env.TWILIO_PHONE_NUMBER;
+
+// Send SMS via Twilio REST API (no SDK needed)
+async function sendSMS(to, body) {
+  if (!TWILIO_SID || !TWILIO_TOKEN || !TWILIO_PHONE || !to) return;
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`;
+  const params = new URLSearchParams({ To: to, From: TWILIO_PHONE, Body: body });
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: "Basic " + Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString("base64"),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+  } catch (err) {
+    console.error("SMS send failed:", err.message);
+  }
+}
 
 async function redis(cmd, ...args) {
   const res = await fetch(`${KV_URL}`, {
@@ -101,6 +123,16 @@ export default async function handler(req, res) {
       caseData.status = caseData.sideA ? "both_submitted" : "waiting_for_a";
 
       await redis("SET", `case:${code}`, JSON.stringify(caseData));
+
+      // Notify Person A via SMS when both sides are in
+      if (caseData.status === "both_submitted" && caseData.phoneNumber) {
+        const bName = caseData.personBName || "The other person";
+        await sendSMS(
+          caseData.phoneNumber,
+          `${bName} submitted their side on YouBeTheJudge! Both arguments are in. Open the app to drop the verdict: https://youbethejudge.ai`
+        );
+      }
+
       return res.status(200).json({ status: caseData.status });
     }
 
