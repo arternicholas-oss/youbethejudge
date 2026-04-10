@@ -1,71 +1,90 @@
 // Dynamic OG Image Generation for shared verdict links
-// Uses @vercel/og (Edge Runtime) to create 1200x630 social cards
-import { ImageResponse } from "@vercel/og";
+// Generates SVG social cards (1200x630) — no external dependencies needed
 
-export const config = { runtime: "edge" };
-
-export default async function handler(req) {
+export default function handler(req, res) {
   try {
-    const { searchParams } = new URL(req.url);
-    const topic = searchParams.get("topic") || "Court is in Session";
-    const winner = searchParams.get("winner") || "Tie";
-    const scoreA = parseInt(searchParams.get("scoreA") || "50");
-    const scoreB = parseInt(searchParams.get("scoreB") || "50");
-    const headline = searchParams.get("headline") || "";
-    const nameA = searchParams.get("nameA") || "Person A";
-    const nameB = searchParams.get("nameB") || "Person B";
+    const url = new URL(req.url, `https://${req.headers.host}`);
+    const topic = url.searchParams.get("topic") || "Court is in Session";
+    const winner = url.searchParams.get("winner") || "Tie";
+    const scoreA = parseInt(url.searchParams.get("scoreA") || "50");
+    const scoreB = parseInt(url.searchParams.get("scoreB") || "50");
+    const headline = url.searchParams.get("headline") || "";
+    const nameA = url.searchParams.get("nameA") || "Person A";
+    const nameB = url.searchParams.get("nameB") || "Person B";
 
-    return new ImageResponse(
-      (
-        <div style={{ display:"flex", flexDirection:"column", width:"100%", height:"100%", background:"#FDF8F5", padding:"50px 60px", fontFamily:"system-ui,-apple-system,sans-serif" }}>
-          {/* Top tagline */}
-          <div style={{ display:"flex", fontSize:20, color:"#E8445A", fontWeight:600, letterSpacing:"0.5px", marginBottom:20 }}>
-            Finally, a judge who doesn't take sides.
-          </div>
+    const truncate = (s, max) => s.length > max ? s.slice(0, max - 3) + "..." : s;
+    const barWidthA = Math.round((scoreA / 100) * 480);
+    const barWidthB = Math.round((scoreB / 100) * 480);
 
-          {/* Topic */}
-          <div style={{ display:"flex", fontSize:52, fontWeight:800, color:"#1A1412", lineHeight:1.2, marginBottom:16, maxHeight:140, overflow:"hidden" }}>
-            {topic.length > 60 ? topic.slice(0,57)+"..." : topic}
-          </div>
+    const headlineSvg = headline
+      ? `<text x="60" y="260" fill="#F4724A" font-size="28" font-weight="700" font-family="system-ui,-apple-system,sans-serif">${escapeXml(truncate(headline, 80))}</text>`
+      : "";
 
-          {/* Headline */}
-          {headline && (
-            <div style={{ display:"flex", fontSize:28, fontWeight:700, color:"#F4724A", marginBottom:30 }}>
-              {headline.length > 80 ? headline.slice(0,77)+"..." : headline}
-            </div>
-          )}
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#FDF8F5"/>
 
-          {/* Score section */}
-          <div style={{ display:"flex", flex:1, alignItems:"flex-end", gap:30, marginBottom:30 }}>
-            {/* Person A */}
-            <div style={{ display:"flex", flexDirection:"column", flex:1, alignItems:"center", gap:8 }}>
-              <div style={{ fontSize:18, fontWeight:700, color:"#E8445A" }}>{nameA}</div>
-              <div style={{ display:"flex", width:"100%", height:24, background:"#EDE6DF", borderRadius:12, overflow:"hidden" }}>
-                <div style={{ width:`${scoreA}%`, height:"100%", background:"linear-gradient(135deg,#E8445A,#F4724A)", borderRadius:12 }} />
-              </div>
-              <div style={{ fontSize:36, fontWeight:800, color:"#E8445A" }}>{scoreA}</div>
-            </div>
-            <div style={{ display:"flex", fontSize:24, fontWeight:800, color:"#B0A49E", alignSelf:"center" }}>vs</div>
-            {/* Person B */}
-            <div style={{ display:"flex", flexDirection:"column", flex:1, alignItems:"center", gap:8 }}>
-              <div style={{ fontSize:18, fontWeight:700, color:"#3A6FD4" }}>{nameB}</div>
-              <div style={{ display:"flex", width:"100%", height:24, background:"#EDE6DF", borderRadius:12, overflow:"hidden" }}>
-                <div style={{ width:`${scoreB}%`, height:"100%", background:"linear-gradient(135deg,#3A6FD4,#5B8FE4)", borderRadius:12 }} />
-              </div>
-              <div style={{ fontSize:36, fontWeight:800, color:"#3A6FD4" }}>{scoreB}</div>
-            </div>
-          </div>
+  <!-- Tagline -->
+  <text x="60" y="70" fill="#E8445A" font-size="20" font-weight="600" font-family="system-ui,-apple-system,sans-serif" letter-spacing="0.5">
+    Finally, a judge who doesn&apos;t take sides.
+  </text>
 
-          {/* Footer */}
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderTop:"2px solid #EDE6DF", paddingTop:20 }}>
-            <div style={{ display:"flex", fontSize:22, fontWeight:800, color:"#E8445A" }}>youbethejudge.ai</div>
-            <div style={{ display:"flex", fontSize:18, color:"#6B5E58", fontWeight:600 }}>Winner: {winner}</div>
-          </div>
-        </div>
-      ),
-      { width: 1200, height: 630 }
-    );
+  <!-- Topic -->
+  <text x="60" y="140" fill="#1A1412" font-size="48" font-weight="800" font-family="system-ui,-apple-system,sans-serif">
+    ${escapeXml(truncate(topic, 50))}
+  </text>
+
+  ${headlineSvg}
+
+  <!-- Person A -->
+  <text x="180" y="370" fill="#E8445A" font-size="18" font-weight="700" font-family="system-ui,-apple-system,sans-serif" text-anchor="middle">
+    ${escapeXml(truncate(nameA, 20))}
+  </text>
+  <rect x="60" y="385" width="480" height="24" rx="12" fill="#EDE6DF"/>
+  <rect x="60" y="385" width="${barWidthA}" height="24" rx="12" fill="#E8445A"/>
+  <text x="180" y="440" fill="#E8445A" font-size="36" font-weight="800" font-family="system-ui,-apple-system,sans-serif" text-anchor="middle">
+    ${scoreA}
+  </text>
+
+  <!-- vs -->
+  <text x="600" y="415" fill="#B0A49E" font-size="24" font-weight="800" font-family="system-ui,-apple-system,sans-serif" text-anchor="middle">
+    vs
+  </text>
+
+  <!-- Person B -->
+  <text x="900" y="370" fill="#3A6FD4" font-size="18" font-weight="700" font-family="system-ui,-apple-system,sans-serif" text-anchor="middle">
+    ${escapeXml(truncate(nameB, 20))}
+  </text>
+  <rect x="660" y="385" width="480" height="24" rx="12" fill="#EDE6DF"/>
+  <rect x="660" y="385" width="${barWidthB}" height="24" rx="12" fill="#3A6FD4"/>
+  <text x="900" y="440" fill="#3A6FD4" font-size="36" font-weight="800" font-family="system-ui,-apple-system,sans-serif" text-anchor="middle">
+    ${scoreB}
+  </text>
+
+  <!-- Footer line -->
+  <line x1="60" y1="550" x2="1140" y2="550" stroke="#EDE6DF" stroke-width="2"/>
+
+  <!-- Footer text -->
+  <text x="60" y="590" fill="#E8445A" font-size="22" font-weight="800" font-family="system-ui,-apple-system,sans-serif">
+    youbethejudge.ai
+  </text>
+  <text x="1140" y="590" fill="#6B5E58" font-size="18" font-weight="600" font-family="system-ui,-apple-system,sans-serif" text-anchor="end">
+    Winner: ${escapeXml(winner)}
+  </text>
+</svg>`;
+
+    res.setHeader("Content-Type", "image/svg+xml");
+    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400");
+    res.status(200).send(svg);
   } catch (e) {
-    return new Response("Error generating image", { status: 500 });
+    res.status(500).send("Error generating image");
   }
+}
+
+function escapeXml(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
