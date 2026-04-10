@@ -4,6 +4,10 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/api/claude", "destination": "/api/claude" },
+    { "source": "/api/case", "destination": "/api/case" },
+    { "source": "/api/court", "destination": "/api/court" },
+    { "source": "/api/og", "destination": "/api/og" },
     { "source": "/privacy", "destination": "/" },
     { "source": "/terms", "destination": "/" },
     { "source": "/join/:code", "destination": "/" }

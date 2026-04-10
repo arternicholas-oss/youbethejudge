@@ -25,8 +25,13 @@ const ALLOWED_MODELS = [
   "claude-haiku-4-5-20251001",
 ];
 
-// Max tokens cap
-const MAX_TOKENS_CAP = 1500;
+// Tier-based token caps and model selection
+// Free tier: Haiku model with 800 token cap
+// Premium tier: Sonnet model with 1500 token cap
+const TIER_CONFIG = {
+  free: { model: "claude-haiku-4-5-20251001", maxTokens: 800 },
+  premium: { model: "claude-sonnet-4-20250514", maxTokens: 1500 },
+};
 
 export default async function handler(req, res) {
   // CORS headers
@@ -60,15 +65,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid request: messages array required" });
     }
 
-    // Validate model
-    if (body.model && !ALLOWED_MODELS.includes(body.model)) {
-      return res.status(400).json({ error: "Invalid model" });
-    }
+    // Determine tier and get config (default to free)
+    const tier = body.tier === "premium" ? "premium" : "free";
+    const tierConfig = TIER_CONFIG[tier];
 
-    // Cap max_tokens
+    // Build request using tier-based model and token cap
     const sanitizedBody = {
-      model: body.model || "claude-sonnet-4-20250514",
-      max_tokens: Math.min(body.max_tokens || 1200, MAX_TOKENS_CAP),
+      model: tierConfig.model,
+      max_tokens: Math.min(body.max_tokens || tierConfig.maxTokens, tierConfig.maxTokens),
       messages: body.messages.slice(0, 5), // Max 5 messages
     };
 

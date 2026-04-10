@@ -17,6 +17,7 @@ const SCREENS = {
   RECORD_A:"record_a", CLARIFY_A:"clarify_a",
   RECORD_B:"record_b", CLARIFY_B:"clarify_b",
   PERSONALITY:"personality", VERDICT:"verdict",
+  HANDOFF:"handoff",
   HISTORY:"history", COURT:"court", CASE_DETAIL:"case_detail",
   PRIVACY:"privacy", TERMS:"terms",
   // Remote flow
@@ -64,6 +65,16 @@ const commentScore = (c) => {
   const ageHours = (Date.now() - c.ts) / 3600000;
   const recencyBoost = Math.max(0, 10 - ageHours * 0.5);
   return c.likes + recencyBoost;
+};
+
+const getTimeAgo = (dateStr) => {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff/60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins/60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs/24);
+  return `${days}d ago`;
 };
 
 const DAILY_DEBATES = [
@@ -153,7 +164,7 @@ export default function YouBeTheJudge() {
   const [showShare, setShowShare] = useState(false);
   const [judgeMode, setJudgeMode] = useState("funny");
   const [caseName, setCaseName] = useState("");
-  const [courtCases, setCourtCases] = useState(MOCK_COURT);
+  const [courtCases, setCourtCases] = useState([]);
   const [selectedCase, setSelectedCase] = useState(null);
   const [clarifyQsA, setClarifyQsA] = useState([]);
   const [clarifyQsB, setClarifyQsB] = useState([]);
@@ -175,6 +186,13 @@ export default function YouBeTheJudge() {
   ]);
   const [showNotifs, setShowNotifs] = useState(false);
   const [joinError, setJoinError] = useState(false);
+  const [courtLoading, setCourtLoading] = useState(false);
+  const [reportedComments, setReportedComments] = useState(new Set());
+  const [visitorId] = useState(() => {
+    let id = localStorage.getItem('ybtj_visitor_id');
+    if (!id) { id = 'v_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('ybtj_visitor_id', id); }
+    return id;
+  });
   const recognitionRef = useRef(null);
 
   // URL-based routing for /privacy, /terms, and /join/:code
@@ -222,6 +240,50 @@ export default function YouBeTheJudge() {
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
 
+  // Fetch court cases from Supabase when Court screen is shown
+  useEffect(() => {
+    if (screen === SCREENS.COURT) {
+      setCourtLoading(true);
+      fetch('/api/court').then(r=>r.json()).then(d=>{
+        if(d.data && d.data.length) setCourtCases(d.data.map(c=>({
+          id:c.id, category:c.category, topic:c.topic,
+          displayA:c.display_a, displayB:c.display_b,
+          aiWinner:c.ai_winner, aiHeadline:c.ai_headline, aiRuling:c.ai_ruling,
+          preview:c.preview,
+          votes:{a:c.votes_a||0, b:c.votes_b||0}, totalVotes:c.total_votes||0,
+          isOwn:false, myVote:null, timeAgo: getTimeAgo(c.created_at), comments:[]
+        })));
+      }).catch(()=>{}).finally(()=>setCourtLoading(false));
+    }
+  }, [screen]);
+
+  // Fetch full case detail (with comments) when viewing a case
+  const loadCaseDetail = async (caseId) => {
+    try {
+      const res = await fetch(`/api/court?id=${caseId}`);
+      const d = await res.json();
+      if(d.data) {
+        const c = d.data;
+        const mapped = {
+          id:c.id, category:c.category, topic:c.topic,
+          sideA:c.side_a, sideB:c.side_b,
+          displayA:c.display_a, displayB:c.display_b,
+          aiWinner:c.ai_winner, aiHeadline:c.ai_headline, aiRuling:c.ai_ruling,
+          verdictJson: c.verdict_json,
+          votes:{a:c.votes_a||0, b:c.votes_b||0}, totalVotes:c.total_votes||0,
+          isOwn:false, myVote:null, timeAgo: getTimeAgo(c.created_at),
+          comments: (c.comments||[]).map(cm=>({
+            id:cm.id, caseId:c.id, username:cm.username, text:cm.text, tag:cm.tag,
+            likes:cm.likes_count||0, likedByMe:false, ts:new Date(cm.created_at).getTime(), replies:[]
+          }))
+        };
+        setSelectedCase(mapped);
+        // Also update in courtCases list
+        setCourtCases(prev=>prev.map(cc=>cc.id===caseId?{...cc,...mapped}:cc));
+      }
+    } catch(e) { console.error('Load case detail failed:', e); }
+  };
+
   // Push browser history for SPA nav
   const navigateTo = (newScreen, path) => {
     if (path && window.location.pathname !== path) {
@@ -250,7 +312,7 @@ export default function YouBeTheJudge() {
   const getClarifyQuestions = async (sideText, otherSideText, onDone) => {
     setClarifyLoading(true);
     try {
-      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,messages:[{role:"user",content:`You're a warm, curious mediator. Ask 1-2 short clarifying questions about this argument side. Be specific, friendly. Max 15 words each. Max 2 questions.\n\nTheir side: "${sideText}"\n${otherSideText?`Other side: "${otherSideText}"`:""}\n\nRespond ONLY with valid JSON: {"questions":["q1","q2"]}`}]})});
+      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tier:"free",max_tokens:300,messages:[{role:"user",content:`You're a warm, curious mediator. Ask 1-2 short clarifying questions about this argument side. Be specific, friendly. Max 15 words each. Max 2 questions.\n\nTheir side: "${sideText}"\n${otherSideText?`Other side: "${otherSideText}"`:""}\n\nRespond ONLY with valid JSON: {"questions":["q1","q2"]}`}]})});
       const data = await res.json();
       const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
       onDone(parsed.questions?.slice(0,2)||[]);
@@ -277,7 +339,7 @@ export default function YouBeTheJudge() {
     if (!personA.side||!personB.side) { alert("Both people need to share their side first!"); return; }
     setLoading(true); setScreen(SCREENS.VERDICT);
     try {
-      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:buildPrompt()}]})});
+      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tier:"free",max_tokens:1200,messages:[{role:"user",content:buildPrompt()}]})});
       const data = await res.json();
       const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
       setVerdict(parsed); setShowConfetti(true); setTimeout(()=>setShowConfetti(false),2000);
@@ -286,52 +348,58 @@ export default function YouBeTheJudge() {
     setLoading(false);
   };
 
-  const submitToCourt = (v, cat, displayA, displayB) => {
-    const newCase = {
-      id:Date.now(), category:cat||"Random", topic:topic||"General argument",
-      sideA:personA.side, sideB:personB.side,
-      displayA: displayA||"Person A", displayB: displayB||"Person B",
-      aiWinner:v.winner===(personA.name||"Person A")?"A":v.winner===(personB.name||"Person B")?"B":"Tie",
-      aiHeadline:v.verdict_headline, aiRuling:v.ruling,
-      votes:{a:0,b:0}, totalVotes:0, isOwn:true, myVote:null, timeAgo:"Just now", comments:[]
-    };
-    setCourtCases(prev=>[newCase,...prev]);
-  };
-
-  const voteOnCase = (caseId, side) => {
-    setCourtCases(prev=>prev.map(c=>{
-      if(c.id!==caseId||c.myVote) return c;
-      const newVotes = {...c.votes,[side]:c.votes[side]+1};
-      const newTotal = c.totalVotes+1;
-      const pctA = Math.round((newVotes.a/newTotal)*100);
-      const pctB = Math.round((newVotes.b/newTotal)*100);
-      // Fire notification if it's the user's own case
-      if (c.isOwn) {
-        const milestones = [10,50,100,250,500,1000];
-        if (milestones.includes(newTotal)) {
-          pushNotification("votes", caseId, `Your case just hit ${newTotal} votes! The crowd is split ${pctA}% vs ${pctB}%.`);
-        } else {
-          pushNotification("votes", caseId, `${newTotal} people have now ruled on your argument — Person ${pctA>pctB?"A":"B"} leads ${Math.max(pctA,pctB)}% vs ${Math.min(pctA,pctB)}%`);
-        }
+  const submitToCourt = async (v, cat, displayA, displayB) => {
+    try {
+      const res = await fetch('/api/court?action=submit', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          topic: topic||"General argument", category: cat||"Random",
+          sideA: personA.side, sideB: personB.side,
+          displayA: displayA||personA.name||"Person A", displayB: displayB||personB.name||"Person B",
+          aiWinner: v.winner===(personA.name||"Person A")?"A":v.winner===(personB.name||"Person B")?"B":"Tie",
+          aiHeadline: v.verdict_headline, aiRuling: v.ruling,
+          verdictJson: v, preview: v.verdict_headline, visitorId
+        })
+      });
+      const d = await res.json();
+      if(d.data) {
+        const c = d.data;
+        setCourtCases(prev=>[{id:c.id, category:c.category, topic:c.topic, displayA:c.display_a, displayB:c.display_b, aiWinner:c.ai_winner, aiHeadline:c.ai_headline, aiRuling:c.ai_ruling, preview:c.preview, votes:{a:0,b:0}, totalVotes:0, isOwn:true, myVote:null, timeAgo:"Just now", comments:[]}, ...prev]);
       }
-      return {...c,votes:newVotes,totalVotes:newTotal,myVote:side};
-    }));
+    } catch(e) { console.error('Submit to court failed:', e); }
   };
 
-  const addComment = (caseId, text, tag) => {
+  const voteOnCase = async (caseId, side) => {
+    try {
+      await fetch('/api/court?action=vote', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ caseId, side, visitorId })
+      });
+      setCourtCases(prev=>prev.map(c=>{
+        if(c.id!==caseId||c.myVote) return c;
+        const newVotes = {...c.votes,[side]:c.votes[side]+1};
+        const newTotal = c.totalVotes+1;
+        return {...c, votes:newVotes, totalVotes:newTotal, myVote:side};
+      }));
+    } catch(e) { console.error('Vote failed:', e); }
+  };
+
+  const addComment = async (caseId, text, tag) => {
     const banned = ["hate","slur","kill","die","stupid idiot"];
     if (banned.some(w => text.toLowerCase().includes(w))) return false;
-    const comment = { id:`${caseId}-${Date.now()}`, caseId, username:MY_USERNAME, text, tag, likes:0, likedByMe:false, ts:Date.now(), replies:[] };
-    setCourtCases(prev=>prev.map(c=>{
-      if(c.id!==caseId) return c;
-      const updated = {...c, comments:[...c.comments, comment]};
-      // Notify owner if commenting on their case
-      if (c.isOwn) {
-        pushNotification("comment", caseId, `${MY_USERNAME} commented on your case: "${text.slice(0,60)}${text.length>60?"...":""}"`);
+    try {
+      const res = await fetch('/api/court?action=comment', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ caseId, username:MY_USERNAME, text, tag, visitorId })
+      });
+      const d = await res.json();
+      if(d.data) {
+        const cm = d.data;
+        const comment = { id:cm.id, caseId, username:cm.username, text:cm.text, tag:cm.tag, likes:0, likedByMe:false, ts:Date.now(), replies:[] };
+        setCourtCases(prev=>prev.map(c=> c.id!==caseId ? c : {...c, comments:[...c.comments, comment]}));
       }
-      return updated;
-    }));
-    return true;
+      return true;
+    } catch(e) { console.error('Comment failed:', e); return false; }
   };
 
   const addReply = (caseId, commentId, replyText) => {
@@ -354,27 +422,39 @@ export default function YouBeTheJudge() {
     return true;
   };
 
-  const toggleLike = (caseId, commentId) => {
-    setCourtCases(prev=>prev.map(c=>{
-      if(c.id!==caseId) return c;
-      const updatedComments = c.comments.map(cm=>{
-        if(cm.id!==commentId) return cm;
-        const nowLiked = !cm.likedByMe;
-        const newLikes = nowLiked ? cm.likes+1 : cm.likes-1;
-        // Notify own case owner when their post gets a top comment
-        if (c.isOwn && nowLiked && newLikes >= 10) {
-          pushNotification("top_comment", caseId, `A comment on your case just hit ${newLikes} likes: "${cm.text.slice(0,50)}..."`);
-        }
-        return {...cm, likes:newLikes, likedByMe:nowLiked};
+  const toggleLike = async (caseId, commentId) => {
+    try {
+      const res = await fetch('/api/court?action=like', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ commentId, visitorId })
       });
-      return {...c, comments:updatedComments};
-    }));
+      const d = await res.json();
+      setCourtCases(prev=>prev.map(c=>{
+        if(c.id!==caseId) return c;
+        return {...c, comments:c.comments.map(cm=>{
+          if(cm.id!==commentId) return cm;
+          const nowLiked = d.liked !== undefined ? d.liked : !cm.likedByMe;
+          return {...cm, likes: nowLiked ? cm.likes+1 : Math.max(0,cm.likes-1), likedByMe:nowLiked};
+        })};
+      }));
+    } catch(e) { console.error('Like failed:', e); }
+  };
+
+  const reportComment = async (commentId) => {
+    if (reportedComments.has(commentId)) return;
+    try {
+      await fetch('/api/court?action=report', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ commentId, visitorId, reason:'inappropriate' })
+      });
+      setReportedComments(prev => new Set([...prev, commentId]));
+    } catch(e) { console.error('Report failed:', e); }
   };
 
   const getAISmartestComment = async (caseId, comments) => {
     if (!comments.length) return;
     try {
-      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:200,messages:[{role:"user",content:`You are evaluating user comments on an argument case. Pick the single most insightful, logically sound comment. Return only the comment id.\n\nComments:\n${comments.map(c=>`ID: ${c.id}\nText: ${c.text}\nTag: ${c.tag}`).join("\n\n")}\n\nRespond ONLY with valid JSON: {"smartest_id":"<id>","funniest_id":"<id>"}`}]})});
+      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tier:"free",max_tokens:200,messages:[{role:"user",content:`You are evaluating user comments on an argument case. Pick the single most insightful, logically sound comment. Return only the comment id.\n\nComments:\n${comments.map(c=>`ID: ${c.id}\nText: ${c.text}\nTag: ${c.tag}`).join("\n\n")}\n\nRespond ONLY with valid JSON: {"smartest_id":"<id>","funniest_id":"<id>"}`}]})});
       const data = await res.json();
       const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
       setCourtCases(prev=>prev.map(c=>c.id===caseId?{...c,aiSmartestId:parsed.smartest_id,aiFunniestId:parsed.funniest_id}:c));
@@ -424,7 +504,7 @@ export default function YouBeTheJudge() {
   const handleAfterRecordA = () => {
     getClarifyQuestions(personA.side, personB.side, (qs) => {
       if (qs.length > 0) { setClarifyQsA(qs); setClarifyAnsA(new Array(qs.length).fill("")); setScreen(SCREENS.CLARIFY_A); }
-      else setScreen(SCREENS.RECORD_B);
+      else setScreen(remoteMode ? SCREENS.RECORD_B : SCREENS.HANDOFF);
     });
   };
 
@@ -450,15 +530,25 @@ export default function YouBeTheJudge() {
       {screen===SCREENS.REMOTE_B_RECORD && <RemoteBRecordScreen person={personB} setPerson={setPersonB} recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={(side)=>{ getClarifyQuestions(side, personA.side, (qs)=>{ if(qs.length>0){setRemoteBClarifyQs(qs);setRemoteBClarifyAns(new Array(qs.length).fill(""));setScreen(SCREENS.REMOTE_B_CLARIFY);}else{setRemoteBSide(side);setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}});}} topic={topic} />}
       {screen===SCREENS.REMOTE_B_CLARIFY && <ClarifyScreen name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="💙" questions={remoteBClarifyQs} answers={remoteBClarifyAns} setAnswers={setRemoteBClarifyAns} onNext={()=>{setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}} onBack={()=>setScreen(SCREENS.REMOTE_B_RECORD)} isFinal />}
       {screen===SCREENS.RECORD_A && <RecordScreen person={personA} setPerson={setPersonA} name={personA.name||"Person A"} color={C.rose} colorLight={C.roseLight} emoji="🌸" recording={recording&&activeRecorder==="A"} onStart={()=>startVoice("A")} onStop={stopVoice} onNext={()=>{ if(remoteMode){ getClarifyQuestions(personA.side,"",(qs)=>{ if(qs.length>0){setClarifyQsA(qs);setClarifyAnsA(new Array(qs.length).fill(""));setScreen(SCREENS.CLARIFY_A);}else setScreen(SCREENS.REMOTE_WAITING);}); }else handleAfterRecordA(); }} nextLoading={clarifyLoading} onBack={()=>setScreen(remoteMode?SCREENS.REMOTE_SEND:SCREENS.SETUP)} otherPerson={personB} topic={topic} />}
-      {screen===SCREENS.CLARIFY_A && <ClarifyScreen name={personA.name||"Person A"} color={C.rose} colorLight={C.roseLight} emoji="🌸" questions={clarifyQsA} answers={clarifyAnsA} setAnswers={setClarifyAnsA} onNext={()=>remoteMode?setScreen(SCREENS.REMOTE_WAITING):setScreen(SCREENS.RECORD_B)} onBack={()=>setScreen(SCREENS.RECORD_A)} />}
+      {screen===SCREENS.CLARIFY_A && <ClarifyScreen name={personA.name||"Person A"} color={C.rose} colorLight={C.roseLight} emoji="🌸" questions={clarifyQsA} answers={clarifyAnsA} setAnswers={setClarifyAnsA} onNext={()=>remoteMode?setScreen(SCREENS.REMOTE_WAITING):setScreen(SCREENS.HANDOFF)} onBack={()=>setScreen(SCREENS.RECORD_A)} />}
+      {screen===SCREENS.HANDOFF && (
+        <div style={S.screen} className="fade-in">
+          <div style={{...S.card, textAlign:'center', padding:'60px 24px', marginTop:60}}>
+            <div style={{fontSize:48, marginBottom:16}}>🔒</div>
+            <h2 style={{...S.title, fontSize:28, marginBottom:12}}>Pass the phone</h2>
+            <p style={{...S.sub, fontSize:16, marginBottom:32}}>No peeking! It's {personB.name||"Person B"}'s turn to share their side.</p>
+            <button className="pop" style={S.btnPrimary} onClick={()=>setScreen(SCREENS.RECORD_B)}>I'm ready</button>
+          </div>
+        </div>
+      )}
       {screen===SCREENS.RECORD_B && <RecordScreen person={personB} setPerson={setPersonB} name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="💙" recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={handleAfterRecordB} nextLoading={clarifyLoading} onBack={()=>clarifyQsA.length>0?setScreen(SCREENS.CLARIFY_A):setScreen(SCREENS.RECORD_A)} isFinal={!usePersonality} otherPerson={personA} topic={topic} />}
       {screen===SCREENS.CLARIFY_B && <ClarifyScreen name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="💙" questions={clarifyQsB} answers={clarifyAnsB} setAnswers={setClarifyAnsB} onNext={()=>usePersonality?setScreen(SCREENS.PERSONALITY):getVerdict()} onBack={()=>setScreen(SCREENS.RECORD_B)} isFinal />}
       {screen===SCREENS.PERSONALITY && <PersonalityScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} depth={personalityDepth} onNext={getVerdict} onBack={()=>clarifyQsB.length>0?setScreen(SCREENS.CLARIFY_B):setScreen(SCREENS.RECORD_B)} />}
       {screen===SCREENS.VERDICT && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={personB} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={reset} onSubmitCourt={submitToCourt} setScreen={setScreen} caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} />}
       {screen===SCREENS.REMOTE_REVEAL && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={{...personB,side:remoteBSide}} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={resetFull} onSubmitCourt={submitToCourt} setScreen={setScreen} isRemote caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} />}
       {screen===SCREENS.HISTORY && <HistoryScreen history={history} onBack={()=>setScreen(SCREENS.HOME)} />}
-      {screen===SCREENS.COURT && <CourtScreen cases={courtCases} onVote={voteOnCase} onSelect={c=>{setSelectedCase(c);setScreen(SCREENS.CASE_DETAIL);}} onBack={()=>setScreen(SCREENS.HOME)} />}
-      {screen===SCREENS.CASE_DETAIL && currentCourtCase && <CaseDetailScreen c={currentCourtCase} onVote={side=>voteOnCase(currentCourtCase.id,side)} onComment={(text,tag)=>addComment(currentCourtCase.id,text,tag)} onReply={(commentId,text)=>addReply(currentCourtCase.id,commentId,text)} onLike={(commentId)=>toggleLike(currentCourtCase.id,commentId)} onGetAIPicks={()=>getAISmartestComment(currentCourtCase.id,currentCourtCase.comments)} onBack={()=>setScreen(SCREENS.COURT)} judgeMode={judgeMode} />}
+      {screen===SCREENS.COURT && <CourtScreen cases={courtCases} loading={courtLoading} onVote={voteOnCase} onSelect={c=>{setSelectedCase(c);loadCaseDetail(c.id);setScreen(SCREENS.CASE_DETAIL);}} onBack={()=>setScreen(SCREENS.HOME)} />}
+      {screen===SCREENS.CASE_DETAIL && currentCourtCase && <CaseDetailScreen c={currentCourtCase} onVote={side=>voteOnCase(currentCourtCase.id,side)} onComment={(text,tag)=>addComment(currentCourtCase.id,text,tag)} onReply={(commentId,text)=>addReply(currentCourtCase.id,commentId,text)} onLike={(commentId)=>toggleLike(currentCourtCase.id,commentId)} onReport={(commentId)=>reportComment(commentId)} reportedComments={reportedComments} onGetAIPicks={()=>getAISmartestComment(currentCourtCase.id,currentCourtCase.comments)} onBack={()=>setScreen(SCREENS.COURT)} judgeMode={judgeMode} />}
       {screen===SCREENS.PRIVACY && <PrivacyScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
       {screen===SCREENS.TERMS && <TermsScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
       {/* Join error banner */}
@@ -516,7 +606,7 @@ function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNoti
       <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:24}}>
         <div>
           <h1 style={{fontSize:36, fontWeight:800, letterSpacing:-1.5, margin:"0 0 2px", background:`linear-gradient(135deg, ${C.rose}, ${C.peach})`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent"}}>You Be The Judge ⚖️</h1>
-          <p style={{fontSize:13, color:C.textMid, margin:0}}>Let AI be the judge you both deserve 👀</p>
+          <p style={{fontSize:13, color:C.textMid, margin:0}}>Finally, a judge who doesn't take sides.</p>
         </div>
         <button style={{position:"relative", background:unread>0?C.roseLight:C.surfaceWarm, border:`1.5px solid ${unread>0?"#F5C0C8":C.border}`, borderRadius:14, padding:"10px 12px", fontSize:20, cursor:"pointer", lineHeight:1}} className="pop" onClick={()=>setShowNotifs(true)}>
           🔔
@@ -1251,7 +1341,7 @@ function SubmitToCourtModal({ verdict, personA, personB, onSubmit, onClose }) {
 }
 
 // ── THE COURT ──────────────────────────────────────────────────
-function CourtScreen({ cases, onVote, onSelect, onBack }) {
+function CourtScreen({ cases, loading, onVote, onSelect, onBack }) {
   const [cat, setCat] = useState("All");
   const [sort, setSort] = useState("hot");
   const filtered = cases.filter(c=>cat==="All"||c.category===cat).sort((a,b)=>sort==="hot"?b.totalVotes-a.totalVotes:b.id-a.id);
@@ -1262,6 +1352,8 @@ function CourtScreen({ cases, onVote, onSelect, onBack }) {
         {[["hot","🔥 Hot"],["new","✨ New"]].map(([v,l])=><button key={v} style={{...S.btnGhost, background:sort===v?C.rose:C.surface, color:sort===v?"#fff":C.textMid, borderColor:sort===v?C.rose:C.borderMid}} className="pop" onClick={()=>setSort(v)}>{l}</button>)}
       </div>
       <div style={S.chipsRow}>{CATEGORIES.map(c=><span key={c} style={{...S.chip, background:cat===c?C.rose:C.surfaceWarm, color:cat===c?"#fff":C.textMid, borderColor:cat===c?C.rose:C.border}} onClick={()=>setCat(c)}>{c}</span>)}</div>
+      {loading && <p style={{textAlign:"center", color:C.textLight, fontSize:13, padding:20}}>Loading cases...</p>}
+      {!loading && filtered.length===0 && <p style={{textAlign:"center", color:C.textLight, fontSize:13, padding:20}}>No cases yet. Be the first to submit a verdict to The Court!</p>}
       {filtered.map(c=><CourtCard key={c.id} c={c} onSelect={onSelect} />)}
       <button style={S.btnGhost} className="pop" onClick={onBack}>← Back home</button>
     </div>
@@ -1354,7 +1446,7 @@ function CourtBars({ pctA, pctB, myVote, displayA, displayB }) {
 }
 
 // ── CASE DETAIL + COMMENTS ─────────────────────────────────────
-function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onGetAIPicks, onBack, judgeMode }) {
+function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onReport, reportedComments, onGetAIPicks, onBack, judgeMode }) {
   const voteTotal = (c.votes.a||0) + (c.votes.b||0);
   const pctA = voteTotal > 0 ? Math.round((c.votes.a/voteTotal)*100) : 50;
   const pctB = voteTotal > 0 ? Math.round((c.votes.b/voteTotal)*100) : 50;
@@ -1441,7 +1533,7 @@ function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onGetAIPicks,
               📤 Share
             </button>
           </div>
-          <button style={{fontSize:10, color:C.textLight, background:"none", border:"none", cursor:"pointer"}} onClick={()=>setReported(r=>({...r,[cm.id]:true}))}>Report</button>
+          <button style={{fontSize:10, color: reportedComments?.has(cm.id)?C.teal:C.textLight, background:"none", border:"none", cursor:"pointer", fontFamily:"inherit"}} onClick={()=>onReport&&onReport(cm.id)}>{reportedComments?.has(cm.id)?"Reported":"Report"}</button>
         </div>
 
         {/* Replies */}
