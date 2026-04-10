@@ -8,6 +8,7 @@
     { "source": "/api/case", "destination": "/api/case" },
     { "source": "/api/court", "destination": "/api/court" },
     { "source": "/api/og", "destination": "/api/og" },
+    { "source": "/api/stripe", "destination": "/api/stripe" },
     { "source": "/privacy", "destination": "/" },
     { "source": "/terms", "destination": "/" },
     { "source": "/join/:code", "destination": "/" }

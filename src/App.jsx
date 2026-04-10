@@ -549,7 +549,6 @@ export default function YouBeTheJudge() {
   const handleAfterRecordB = () => {
     getClarifyQuestions(personB.side, personA.side, (qs) => {
       if (qs.length > 0) { setClarifyQsB(qs); setClarifyAnsB(new Array(qs.length).fill("")); setScreen(SCREENS.CLARIFY_B); }
-      else if (usePersonality) setScreen(SCREENS.PERSONALITY);
       else getVerdict();
     });
   };
@@ -579,8 +578,8 @@ export default function YouBeTheJudge() {
           </div>
         </div>
       )}
-      {screen===SCREENS.RECORD_B && <RecordScreen person={personB} setPerson={setPersonB} name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="💙" recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={handleAfterRecordB} nextLoading={clarifyLoading} onBack={()=>clarifyQsA.length>0?setScreen(SCREENS.CLARIFY_A):setScreen(SCREENS.RECORD_A)} isFinal={!usePersonality} otherPerson={personA} topic={topic} />}
-      {screen===SCREENS.CLARIFY_B && <ClarifyScreen name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="💙" questions={clarifyQsB} answers={clarifyAnsB} setAnswers={setClarifyAnsB} onNext={()=>usePersonality?setScreen(SCREENS.PERSONALITY):getVerdict()} onBack={()=>setScreen(SCREENS.RECORD_B)} isFinal />}
+      {screen===SCREENS.RECORD_B && <RecordScreen person={personB} setPerson={setPersonB} name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="💙" recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={handleAfterRecordB} nextLoading={clarifyLoading} onBack={()=>clarifyQsA.length>0?setScreen(SCREENS.CLARIFY_A):setScreen(SCREENS.RECORD_A)} isFinal={true} otherPerson={personA} topic={topic} />}
+      {screen===SCREENS.CLARIFY_B && <ClarifyScreen name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="💙" questions={clarifyQsB} answers={clarifyAnsB} setAnswers={setClarifyAnsB} onNext={()=>getVerdict()} onBack={()=>setScreen(SCREENS.RECORD_B)} isFinal />}
       {screen===SCREENS.PERSONALITY && <PersonalityScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} depth={personalityDepth} onNext={getVerdict} onBack={()=>clarifyQsB.length>0?setScreen(SCREENS.CLARIFY_B):setScreen(SCREENS.RECORD_B)} />}
       {screen===SCREENS.VERDICT && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={personB} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={reset} onSubmitCourt={submitToCourt} setScreen={setScreen} caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} />}
       {screen===SCREENS.REMOTE_REVEAL && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={{...personB,side:remoteBSide}} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={resetFull} onSubmitCourt={submitToCourt} setScreen={setScreen} isRemote caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} />}
@@ -668,6 +667,21 @@ function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNoti
         ))}
       </div>
 
+      {/* Pro Judge upsell */}
+      <div style={{...S.card, background:`linear-gradient(135deg, ${C.lavLight}, #FFF8E8)`, borderColor:`${C.lavender}30`, cursor:"pointer"}} className="pop">
+        <div style={{display:"flex", gap:12, alignItems:"center"}}>
+          <div style={{fontSize:28, flexShrink:0}}>👨‍⚖️</div>
+          <div style={{flex:1}}>
+            <div style={{display:"flex", alignItems:"center", gap:6, marginBottom:3}}>
+              <span style={{fontSize:14, fontWeight:800, color:C.lavender}}>Pro Judge</span>
+              <span style={{background:C.gold, color:"#fff", borderRadius:6, padding:"1px 7px", fontSize:9, fontWeight:700}}>$4.99/mo</span>
+            </div>
+            <p style={{fontSize:11, color:C.textMid, margin:0, lineHeight:1.5}}>Unlimited verdicts, personality analysis, custom judge personas, and ad-free Court.</p>
+          </div>
+          <span style={{color:C.lavender, fontSize:16}}>→</span>
+        </div>
+      </div>
+
       <div style={{...S.card, borderColor:"#F5C0C8"}}>
         <p style={{...S.label, color:C.rose}}>🔥 Daily Debate — Who's Right?</p>
         <p style={{fontSize:14, fontWeight:700, color:C.text, marginBottom:12, lineHeight:1.4}}>{debate.topic}</p>
@@ -730,19 +744,7 @@ function SetupScreen({ personA, setPersonA, personB, setPersonB, topic, setTopic
           ))}
         </div>
       </div>
-      <div style={S.card}>
-        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-          <div><label style={S.label}>Personality Depth 🔮 <span style={{background:C.gold, color:"#fff", borderRadius:6, padding:"1px 6px", fontSize:8, letterSpacing:1, marginLeft:4}}>PREMIUM</span></label><p style={{...S.sub, fontSize:11}}>Optional · Zodiac, MBTI & more</p></div>
-          <div style={{background:usePersonality?C.rose:C.surfaceWarm, color:usePersonality?"#fff":C.textMid, border:`1.5px solid ${usePersonality?C.rose:C.border}`, borderRadius:20, padding:"7px 16px", fontSize:11, fontWeight:700, cursor:"pointer"}} onClick={()=>setUsePersonality(v=>!v)}>{usePersonality?"ON":"OFF"}</div>
-        </div>
-        {usePersonality && (
-          <div style={{display:"flex", gap:6, marginTop:10, flexWrap:"wrap"}}>
-            {[["zodiac","🌙 Zodiac"],["mbti","🧠 MBTI"],["full","✨ Full Deep Dive"]].map(([v,l])=>(
-              <button key={v} style={{...S.btnGhost, padding:"7px 12px", fontSize:11, background:personalityDepth===v?C.rose:C.surface, color:personalityDepth===v?"#fff":C.textMid, borderColor:personalityDepth===v?C.rose:C.border}} onClick={()=>setPersonalityDepth(v)}>{l}</button>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Personality quiz removed from setup — now offered as post-verdict upsell */}
       <button style={S.btnPrimary} className="pop" onClick={()=>setScreen(SCREENS.MODE_SELECT)}>Next: Choose How to Play →</button>
     </div>
   );
@@ -1219,6 +1221,17 @@ function VerdictScreen({ verdict, loading, personA, personB, judgeMode, showConf
       {verdict.roast&&judgeMode==="funny"&&<div style={{...S.card, background:C.goldLight, borderColor:`${C.gold}40`}}><label style={{...S.label, color:C.gold}}>🔥 The Roast</label><p style={{fontSize:13, color:C.textMid, fontStyle:"italic"}}>"{verdict.roast}"</p></div>}
       {verdict.communication_tip&&<div style={{...S.card, background:C.tealLight, borderColor:`${C.teal}40`}}><label style={{...S.label, color:C.teal}}>💬 Communication tip</label><p style={{fontSize:12, color:C.textMid, lineHeight:1.65}}>{verdict.communication_tip}</p></div>}
       {verdict.personality_insight&&<div style={{...S.card, background:C.lavLight, borderColor:`${C.lavender}40`}}><label style={{...S.label, color:C.lavender}}>🔮 Personality insight</label><p style={{fontSize:12, color:C.textMid, lineHeight:1.65}}>{verdict.personality_insight}</p></div>}
+
+      {/* ── PERSONALITY UPSELL (post-verdict) ── */}
+      {!verdict.personality_insight && (
+        <div style={{...S.card, background:`linear-gradient(135deg, ${C.lavLight}, #fff)`, borderColor:`${C.lavender}40`, textAlign:"center", padding:20}}>
+          <div style={{fontSize:32, marginBottom:8}}>🔮</div>
+          <h3 style={{fontSize:15, fontWeight:800, color:C.lavender, marginBottom:6}}>Want a deeper analysis?</h3>
+          <p style={{fontSize:12, color:C.textMid, lineHeight:1.6, marginBottom:14}}>Unlock personality-powered insights — see how your zodiac signs, MBTI types, love languages, and attachment styles shaped this argument.</p>
+          <div style={{display:"inline-block", background:C.lavender, color:"#fff", borderRadius:8, padding:"2px 10px", fontSize:10, fontWeight:700, marginBottom:12}}>PRO JUDGE</div>
+          <p style={{fontSize:11, color:C.textLight}}>$4.99/month — unlimited verdicts + personality analysis + custom judges</p>
+        </div>
+      )}
 
       {/* ── NAME THIS CASE ── */}
       {!nameSaved ? (
