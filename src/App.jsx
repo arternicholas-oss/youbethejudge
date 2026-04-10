@@ -88,6 +88,11 @@ const MOCK_COURT = [
   { id:3, category:"Money", topic:"Splitting the bill on a first date", displayA:"Sam", displayB:"Taylor", sideA:"I asked them out. I planned it. I should pay.", sideB:"It's 2026. We both ate. Offering to split is respectful.", aiWinner:"Tie", aiHeadline:"Both positions are valid here.", aiRuling:"This is genuinely a matter of cultural expectation. Neither side is objectively wrong.", votes:{a:52,b:48}, totalVotes:3204, isOwn:false, timeAgo:"1d ago", comments:[] },
   { id:4, category:"Roommates", topic:"Thermostat wars", displayA:"Person A", displayB:"Person B", sideA:"I pay equal rent. I should have equal say over temperature. 74° is not unreasonable.", sideB:"74° in February is insane. I'm sweating in my own home.", aiWinner:"A", aiHeadline:"Equal rent = equal climate rights.", aiRuling:"Person A makes a fair equity argument. Person B can layer up more easily.", votes:{a:61,b:39}, totalVotes:672, isOwn:true, myVote:"a", timeAgo:"3d ago", comments:[] },
   { id:5, category:"Family", topic:"Holiday plans with in-laws", displayA:"CuriousOtter", displayB:"SpicyPickle", sideA:"We've gone to your family for Christmas three years in a row. It's our turn.", sideB:"My mom is sick. This isn't about tradition, it's about being there for family.", aiWinner:"B", aiHeadline:"Medical circumstances override rotation logic.", aiRuling:"SpicyPickle's reason is circumstantial, not preferential. Compassion takes precedence.", votes:{a:18,b:82}, totalVotes:1103, isOwn:false, timeAgo:"4d ago", comments:[] },
+  { id:6, category:"Relationship", topic:"Reading partner's texts", displayA:"Mia", displayB:"Jake", sideA:"I had a gut feeling something was off. I checked and I was right — there were flirty messages.", sideB:"Privacy is non-negotiable. You could have just asked me. Going through my phone is a dealbreaker.", aiWinner:"B", aiHeadline:"Being right doesn't make the method okay.", aiRuling:"Jake's boundary around privacy is valid regardless of what was found. Trust violations can't be fixed by more trust violations.", votes:{a:41,b:59}, totalVotes:4521, isOwn:false, timeAgo:"6h ago", comments:[] },
+  { id:7, category:"Money", topic:"Lending money to a best friend", displayA:"Dex", displayB:"Priya", sideA:"I lent her $800 six months ago and she hasn't even mentioned paying it back. I shouldn't have to ask.", sideB:"I fully plan to pay it back. Things have been tight. Real friends don't put a timeline on generosity.", aiWinner:"A", aiHeadline:"Six months of silence is not generosity — it's avoidance.", aiRuling:"Dex extended trust and Priya has not communicated proactively about repayment. At minimum, acknowledgment is owed.", votes:{a:73,b:27}, totalVotes:2891, isOwn:false, timeAgo:"12h ago", comments:[] },
+  { id:8, category:"Work", topic:"Quiet quitting vs. loyalty", displayA:"Chris", displayB:"Dana", sideA:"I do exactly what I'm paid for — nothing more, nothing less. That's not quitting, that's having boundaries.", sideB:"Going above and beyond is how you grow. If everyone did the bare minimum, the company would collapse.", aiWinner:"A", aiHeadline:"Employment is a contract, not a loyalty oath.", aiRuling:"Chris is fulfilling the agreed terms of employment. The expectation of unpaid extra effort benefits employers disproportionately.", votes:{a:68,b:32}, totalVotes:5102, isOwn:false, timeAgo:"1d ago", comments:[] },
+  { id:9, category:"Social", topic:"Showing up late to everything", displayA:"Kai", displayB:"Lena", sideA:"I'm always 10-15 minutes late. It's just how I am. People who know me expect it.", sideB:"Being late every time tells me my time doesn't matter to you. It's disrespectful.", aiWinner:"B", aiHeadline:"Chronic lateness is a choice, not a personality trait.", aiRuling:"Lena correctly identifies that habitual tardiness communicates a lack of respect for others' time, regardless of intent.", votes:{a:12,b:88}, totalVotes:3847, isOwn:false, timeAgo:"2d ago", comments:[] },
+  { id:10, category:"Roommates", topic:"Overnight guests without asking", displayA:"Niko", displayB:"Ava", sideA:"It's my apartment too. I don't need permission to have someone stay over.", sideB:"We share the space. Having a stranger in the living room at 7am without warning crosses a line.", aiWinner:"B", aiHeadline:"Shared space requires shared consent.", aiRuling:"Ava's expectation of advance notice is reasonable. Niko's autonomy doesn't override the shared nature of the living space.", votes:{a:22,b:78}, totalVotes:1956, isOwn:false, timeAgo:"3d ago", comments:[] },
 ].map(c => ({ ...c, comments: seedComments(c.id) }));
 
 const mockHistory = [
@@ -137,6 +142,10 @@ const css = `
   @keyframes barGrow { from{width:0!important} }
   .comment-in { animation: commentIn 0.25s ease; }
   @keyframes commentIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  .tally-reveal { animation: tallyIn 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+  @keyframes tallyIn { from{opacity:0;transform:scale(0.9) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+  .tally-dots::after { content:''; animation: tallyDots 1.2s steps(4,end) infinite; }
+  @keyframes tallyDots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
   .like-pop { animation: likePop 0.2s cubic-bezier(0.34,1.56,0.64,1); }
   @keyframes likePop { from{transform:scale(1)} 50%{transform:scale(1.4)} to{transform:scale(1)} }
   input::placeholder, textarea::placeholder { color:#C0B8B2; }
@@ -194,7 +203,13 @@ export default function YouBeTheJudge() {
     return id;
   });
   const [authUser, setAuthUser] = useState(null);
+  const [communityPaywall, setCommunityPaywall] = useState(false);
   const recognitionRef = useRef(null);
+
+  const COMMUNITY_FREE_LIMIT = 5;
+  const getCommunityViews = () => parseInt(localStorage.getItem('ybtj_community_views')||'0', 10);
+  const incrementCommunityViews = () => { const n = getCommunityViews()+1; localStorage.setItem('ybtj_community_views', String(n)); return n; };
+  const canViewCommunity = () => getCommunityViews() < COMMUNITY_FREE_LIMIT;
 
   const SUPABASE_URL = 'https://imqmuoavgklywiduqctl.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltcW11b2F2Z2tseXdpZHVxY3RsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3ODgxOTIsImV4cCI6MjA5MTM2NDE5Mn0.fLukKz5GTaxjW5jZXEojRwJ3A7DIYJ8zxXfnrRqJej8';
@@ -291,7 +306,8 @@ export default function YouBeTheJudge() {
           votes:{a:c.votes_a||0, b:c.votes_b||0}, totalVotes:c.total_votes||0,
           isOwn:false, myVote:null, timeAgo: getTimeAgo(c.created_at), comments:[]
         })));
-      }).catch(()=>{}).finally(()=>setCourtLoading(false));
+        else setCourtCases(MOCK_COURT);
+      }).catch(()=>{ setCourtCases(MOCK_COURT); }).finally(()=>setCourtLoading(false));
     }
   }, [screen]);
 
@@ -584,7 +600,7 @@ export default function YouBeTheJudge() {
       {screen===SCREENS.VERDICT && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={personB} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={reset} onSubmitCourt={submitToCourt} setScreen={setScreen} caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} />}
       {screen===SCREENS.REMOTE_REVEAL && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={{...personB,side:remoteBSide}} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={resetFull} onSubmitCourt={submitToCourt} setScreen={setScreen} isRemote caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} />}
       {screen===SCREENS.HISTORY && <HistoryScreen history={history} onBack={()=>setScreen(SCREENS.HOME)} />}
-      {screen===SCREENS.COURT && <CourtScreen cases={courtCases} loading={courtLoading} onVote={voteOnCase} onSelect={c=>{setSelectedCase(c);loadCaseDetail(c.id);setScreen(SCREENS.CASE_DETAIL);}} onBack={()=>setScreen(SCREENS.HOME)} authUser={authUser} onSignIn={signInWithGoogle} onSignOut={signOut} />}
+      {screen===SCREENS.COURT && <CourtScreen cases={courtCases} loading={courtLoading} onVote={voteOnCase} onSelect={c=>{if(!canViewCommunity()){setCommunityPaywall(true);return;} incrementCommunityViews();setSelectedCase(c);loadCaseDetail(c.id);setScreen(SCREENS.CASE_DETAIL);}} onBack={()=>setScreen(SCREENS.HOME)} authUser={authUser} onSignIn={signInWithGoogle} onSignOut={signOut} showPaywall={communityPaywall} onDismissPaywall={()=>setCommunityPaywall(false)} freeViewsLeft={COMMUNITY_FREE_LIMIT - getCommunityViews()} />}
       {screen===SCREENS.CASE_DETAIL && currentCourtCase && <CaseDetailScreen c={currentCourtCase} onVote={side=>voteOnCase(currentCourtCase.id,side)} onComment={(text,tag)=>addComment(currentCourtCase.id,text,tag)} onReply={(commentId,text)=>addReply(currentCourtCase.id,commentId,text)} onLike={(commentId)=>toggleLike(currentCourtCase.id,commentId)} onReport={(commentId)=>reportComment(commentId)} reportedComments={reportedComments} onGetAIPicks={()=>getAISmartestComment(currentCourtCase.id,currentCourtCase.comments)} onBack={()=>setScreen(SCREENS.COURT)} judgeMode={judgeMode} authUser={authUser} onSignIn={signInWithGoogle} />}
       {screen===SCREENS.PRIVACY && <PrivacyScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
       {screen===SCREENS.TERMS && <TermsScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
@@ -625,7 +641,7 @@ function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNoti
               <h3 style={{...S.title, fontSize:17, margin:0}}>Notifications 🔔</h3>
               <button style={{background:"none", border:"none", fontSize:13, color:C.textLight, cursor:"pointer", fontFamily:"inherit"}} onClick={()=>{setShowNotifs(false); markNotifsRead();}}>Mark all read · Close</button>
             </div>
-            {notifications.length === 0 && <p style={{...S.sub, textAlign:"center", padding:"20px 0"}}>No notifications yet. Post a case to The Court to start getting reactions!</p>}
+            {notifications.length === 0 && <p style={{...S.sub, textAlign:"center", padding:"20px 0"}}>No notifications yet. Share a case with the Community to start getting reactions!</p>}
             {notifications.map(n => (
               <div key={n.id} style={{display:"flex", gap:10, padding:"10px 12px", borderRadius:14, background:n.read?C.surface:C.roseLight, border:`1px solid ${n.read?C.border:"#F5C0C8"}`, marginBottom:8}}>
                 <span style={{fontSize:20, flexShrink:0}}>{notifIcon[n.type]||"📬"}</span>
@@ -654,12 +670,12 @@ function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNoti
       <button style={S.btnPrimary} className="pop" onClick={()=>setScreen("setup")}>⚖️ Settle an Argument</button>
       <div style={S.btnRow}>
         <button style={{...S.btnGhost,flex:1}} className="pop" onClick={()=>setScreen("history")}>📋 My Cases</button>
-        <button style={{...S.btnGhost,flex:1}} className="pop" onClick={()=>setScreen("court")}>🏛️ The Court</button>
+        <button style={{...S.btnGhost,flex:1}} className="pop" onClick={()=>setScreen("court")}>👥 Community</button>
       </div>
 
       <div style={{...S.card, background:`linear-gradient(135deg,#FFF8F6,#FFF4FF)`}}>
         <p style={{...S.label, color:C.rose}}>How it works ✨</p>
-        {[["🎙️","Speak or type — voice-first"],["🤔","AI asks clarifying questions before ruling"],["📊","Scores logic + key deciding factor"],["🏛️","Anonymously post to The Court — public votes & comments"]].map(([icon,txt])=>(
+        {[["🎙️","Speak or type — voice-first"],["🤔","AI asks clarifying questions before ruling"],["📊","Scores logic + key deciding factor"],["👥","Anonymously post to the Community — public votes & comments"]].map(([icon,txt])=>(
           <div key={txt} style={{display:"flex", gap:10, alignItems:"center", marginBottom:7}}>
             <span style={{fontSize:16, flexShrink:0}}>{icon}</span>
             <span style={{fontSize:12, color:C.textMid}}>{txt}</span>
@@ -952,7 +968,7 @@ function RemoteBLandingScreen({ code, topic, personBName, onStart }) {
 
       <div style={S.card}>
         <label style={S.label}>The rules ⚖️</label>
-        {[["🔒","Your side stays sealed until both are submitted"],["👀","You can't see their argument before submitting"],["⚡","Verdict drops simultaneously on both phones"],["🌐","You can post to The Court anonymously after"]].map(([icon,txt])=>(
+        {[["🔒","Your side stays sealed until both are submitted"],["👀","You can't see their argument before submitting"],["⚡","Verdict drops simultaneously on both phones"],["🌐","You can post to the Community anonymously after"]].map(([icon,txt])=>(
           <div key={txt} style={{display:"flex", gap:10, alignItems:"center", marginBottom:8}}>
             <span style={{fontSize:16}}>{icon}</span>
             <span style={{fontSize:12, color:C.textMid}}>{txt}</span>
@@ -1269,7 +1285,7 @@ function VerdictScreen({ verdict, loading, personA, personB, judgeMode, showConf
 
       <div style={S.btnRow}>
         <button style={{...S.btnGhost, fontSize:12, padding:"11px 12px"}} className="pop" onClick={()=>setShowShare(true)}>📤 Share</button>
-        <button style={{...S.btnSoft, flex:1, fontSize:12}} className="pop" onClick={()=>setSubmitModal(true)}>🏛️ Post Anonymously to Court</button>
+        <button style={{...S.btnSoft, flex:1, fontSize:12}} className="pop" onClick={()=>setSubmitModal(true)}>👥 Post to Community</button>
         <button style={{...S.btnPrimary, flex:1, fontSize:12}} className="pop" onClick={onReset}>New ✨</button>
       </div>
 
@@ -1319,7 +1335,7 @@ function SubmitToCourtModal({ verdict, personA, personB, onSubmit, onClose }) {
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(26,20,18,0.5)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999,padding:20,overflowY:"auto"}}>
       <div style={{...S.card, width:"100%", maxWidth:380}}>
-        <h3 style={{...S.title, fontSize:16, marginBottom:4}}>🏛️ Post to The Court</h3>
+        <h3 style={{...S.title, fontSize:16, marginBottom:4}}>👥 Post to Community</h3>
         <p style={{...S.sub, fontSize:12, marginBottom:16}}>Others vote and comment. You see every reaction. Your identity stays private.</p>
 
         {/* Name pickers */}
@@ -1383,7 +1399,7 @@ function SubmitToCourtModal({ verdict, personA, personB, onSubmit, onClose }) {
         <div style={S.btnRow}>
           <button style={S.btnGhost} className="pop" onClick={onClose}>Cancel</button>
           <button style={{...S.btnPrimary, flex:1}} className="pop" onClick={()=>onSubmit(cat, nameA.trim()||"Person A", nameB.trim()||"Person B")}>
-            Post to The Court 🏛️
+            Post to Community 👥
           </button>
         </div>
       </div>
@@ -1392,13 +1408,26 @@ function SubmitToCourtModal({ verdict, personA, personB, onSubmit, onClose }) {
 }
 
 // ── THE COURT ──────────────────────────────────────────────────
-function CourtScreen({ cases, loading, onVote, onSelect, onBack, authUser, onSignIn, onSignOut }) {
+function CourtScreen({ cases, loading, onVote, onSelect, onBack, authUser, onSignIn, onSignOut, showPaywall, onDismissPaywall, freeViewsLeft }) {
   const [cat, setCat] = useState("All");
   const [sort, setSort] = useState("hot");
   const filtered = cases.filter(c=>cat==="All"||c.category===cat).sort((a,b)=>sort==="hot"?b.totalVotes-a.totalVotes:b.id-a.id);
   return (
     <div style={S.screen} className="fade-in">
-      <div style={{textAlign:"center", paddingTop:12}}><h2 style={S.title}>🏛️ The Court</h2><p style={S.sub}>Real arguments. Anonymous. Vote, then discuss.</p></div>
+      {/* Metered paywall overlay */}
+      {showPaywall && (
+        <div style={{position:"fixed",inset:0,background:"rgba(26,20,18,0.6)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999,padding:20}}>
+          <div style={{...S.card, width:"100%", maxWidth:360, textAlign:"center", padding:28}} className="verdict-pop">
+            <div style={{fontSize:40, marginBottom:12}}>🔒</div>
+            <h3 style={{...S.title, fontSize:18, marginBottom:8}}>You've read your 5 free verdicts</h3>
+            <p style={{...S.sub, fontSize:12, marginBottom:20, lineHeight:1.6}}>Unlock unlimited Community access, personality analysis, custom judge personas, and more with Pro Judge.</p>
+            <button style={{...S.btnPrimary, marginBottom:10}} className="pop" onClick={async()=>{try{const r=await fetch('/api/stripe?action=checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visitor_id:localStorage.getItem('ybtj_visitor_id')})});const d=await r.json();if(d.url)window.location.href=d.url;}catch(e){}}}>Upgrade to Pro Judge — $4.99/mo</button>
+            <button style={S.btnGhost} onClick={onDismissPaywall}>Maybe later</button>
+          </div>
+        </div>
+      )}
+      <div style={{textAlign:"center", paddingTop:12}}><h2 style={S.title}>👥 Community</h2><p style={S.sub}>Real arguments. Anonymous. Vote, then discuss.</p></div>
+      {freeViewsLeft > 0 && freeViewsLeft <= 3 && <p style={{textAlign:"center", fontSize:11, color:C.gold, fontWeight:600, margin:"-4px 0 0"}}>{freeViewsLeft} free verdict{freeViewsLeft===1?"":"s"} remaining</p>}
       {authUser ? (
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 0",fontSize:13,color:C.textMid}}>
           {authUser.avatar && <img src={authUser.avatar} style={{width:22,height:22,borderRadius:"50%"}} alt="" />}
@@ -1416,7 +1445,7 @@ function CourtScreen({ cases, loading, onVote, onSelect, onBack, authUser, onSig
       </div>
       <div style={S.chipsRow}>{CATEGORIES.map(c=><span key={c} style={{...S.chip, background:cat===c?C.rose:C.surfaceWarm, color:cat===c?"#fff":C.textMid, borderColor:cat===c?C.rose:C.border}} onClick={()=>setCat(c)}>{c}</span>)}</div>
       {loading && <p style={{textAlign:"center", color:C.textLight, fontSize:13, padding:20}}>Loading cases...</p>}
-      {!loading && filtered.length===0 && <p style={{textAlign:"center", color:C.textLight, fontSize:13, padding:20}}>No cases yet. Be the first to submit a verdict to The Court!</p>}
+      {!loading && filtered.length===0 && <p style={{textAlign:"center", color:C.textLight, fontSize:13, padding:20}}>No cases yet. Be the first to share a verdict with the Community!</p>}
       {filtered.map(c=><CourtCard key={c.id} c={c} onSelect={onSelect} />)}
       <button style={S.btnGhost} className="pop" onClick={onBack}>← Back home</button>
     </div>
@@ -1523,6 +1552,14 @@ function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onReport, rep
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState("");
   const [shareComment, setShareComment] = useState(null);
+  const [tallying, setTallying] = useState(false);
+  const [revealResults, setRevealResults] = useState(hasVoted);
+
+  const handleVoteWithReveal = (side) => {
+    setTallying(true);
+    onVote(side);
+    setTimeout(() => { setTallying(false); setRevealResults(true); }, 1500);
+  };
 
   const sortedComments = [...(c.comments||[])].sort((a,b)=>commentScore(b)-commentScore(a));
   const topComment = sortedComments[0];
@@ -1573,6 +1610,8 @@ function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onReport, rep
           <div style={{display:"flex", gap:6, alignItems:"center", flexWrap:"wrap"}}>
             <span style={{fontSize:12, fontWeight:700, color:C.text}}>{cm.username}</span>
             {cm.username===MY_USERNAME && <span style={{background:C.teal, color:"#fff", borderRadius:6, fontSize:8, padding:"1px 5px", fontWeight:700}}>you</span>}
+            {cm.likes>=25 && <span style={{background:`linear-gradient(135deg,${C.gold},${C.peach})`, color:"#fff", borderRadius:6, fontSize:8, padding:"1px 6px", fontWeight:700}}>Community MVP</span>}
+            {cm.likes>=10 && cm.likes<25 && <span style={{background:C.gold, color:"#fff", borderRadius:6, fontSize:8, padding:"1px 6px", fontWeight:700}}>Top Commenter</span>}
             {!isTop && c.aiSmartestId===cm.id && <span style={{background:C.lavender, color:"#fff", borderRadius:6, fontSize:8, padding:"1px 6px", fontWeight:700}}>✨ AI Smartest</span>}
             {!isTop && c.aiFunniestId===cm.id && <span style={{background:C.peach, color:"#fff", borderRadius:6, fontSize:8, padding:"1px 6px", fontWeight:700}}>😂 AI Funniest</span>}
           </div>
@@ -1668,18 +1707,24 @@ function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onReport, rep
       <div style={{...S.card, borderLeft:`3px solid ${C.blue}`}}><label style={{...S.label, color:C.blue}}>{c.displayB||"Person B"} 💙</label><p style={{fontSize:13, color:C.text, lineHeight:1.7}}>"{c.sideB}"</p></div>
 
       {/* Vote to see results — only gates verdict/breakdown, not comments */}
-      {!hasVoted ? (
+      {!hasVoted && !tallying ? (
         <div style={{...S.card, background:`linear-gradient(135deg,#FFF8F6,#FFF4FF)`, textAlign:"center", padding:20}}>
           <div style={{fontSize:28, marginBottom:6}}>🗳️</div>
           <h3 style={{...S.title, fontSize:15, marginBottom:4}}>Who's right?</h3>
           <p style={{...S.sub, fontSize:11, marginBottom:14}}>Vote to see the AI verdict + how the crowd split</p>
           <div style={{display:"flex", flexDirection:"column", gap:8}}>
-            <button style={{...S.btnGhost, borderColor:`${C.rose}60`, color:C.rose, padding:"13px"}} className="pop" onClick={()=>onVote("a")}>👆 {c.displayA||"Person A"} is right</button>
-            <button style={{...S.btnGhost, borderColor:`${C.blue}60`, color:C.blue, padding:"13px"}} className="pop" onClick={()=>onVote("b")}>👆 {c.displayB||"Person B"} is right</button>
+            <button style={{...S.btnGhost, borderColor:`${C.rose}60`, color:C.rose, padding:"13px"}} className="pop" onClick={()=>handleVoteWithReveal("a")}>👆 {c.displayA||"Person A"} is right</button>
+            <button style={{...S.btnGhost, borderColor:`${C.blue}60`, color:C.blue, padding:"13px"}} className="pop" onClick={()=>handleVoteWithReveal("b")}>👆 {c.displayB||"Person B"} is right</button>
           </div>
         </div>
-      ) : (
-        <div style={S.card}>
+      ) : tallying ? (
+        <div style={{...S.card, background:`linear-gradient(135deg,#FFF8F6,#FFF4FF)`, textAlign:"center", padding:28}}>
+          <div style={{fontSize:36, marginBottom:10}} className="spin-fun">🗳️</div>
+          <h3 style={{...S.title, fontSize:16, marginBottom:6}}>Tallying votes<span className="tally-dots"></span></h3>
+          <p style={{...S.sub, fontSize:11}}>Counting what {c.totalVotes.toLocaleString()}+ people think</p>
+        </div>
+      ) : revealResults ? (
+        <div style={S.card} className="tally-reveal">
           <label style={S.label}>The people have spoken 🗳️</label>
           <CourtBars pctA={pctA} pctB={pctB} myVote={c.myVote} displayA={c.displayA} displayB={c.displayB} />
           <div style={{...S.card, background:C.surfaceWarm, borderLeft:`3px solid ${aiColor}`, marginTop:12}}>
@@ -1687,17 +1732,28 @@ function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onReport, rep
             <p style={{fontSize:13, fontWeight:700, color:C.text, marginBottom:6}}>"{c.aiHeadline}"</p>
             <p style={{fontSize:12, color:C.textMid, lineHeight:1.65}}>{c.aiRuling}</p>
           </div>
-          <div style={{background:C.goldLight, borderRadius:12, padding:12, marginTop:10, border:`1px solid ${C.gold}40`}}>
-            <label style={{...S.label, color:C.gold, fontSize:9}}>You vs AI vs crowd ✨</label>
-            <p style={{fontSize:11, color:C.textMid, lineHeight:1.5}}>
-              <strong>You voted:</strong> {c.myVote==="a"?(c.displayA||"Person A"):(c.displayB||"Person B")} · <strong>AI:</strong> {c.aiWinner==="Tie"?"Tie":c.aiWinner==="A"?(c.displayA||"Person A"):(c.displayB||"Person B")} · <strong>Crowd:</strong> {pctA>pctB?`${c.displayA||"Person A"} (${pctA}%)`:pctB>pctA?`${c.displayB||"Person B"} (${pctB}%)`:"split"}
-            </p>
-            {c.myVote===(c.aiWinner==="A"?"a":"b")&&<p style={{fontSize:11, color:C.teal, fontWeight:600, marginTop:4}}>✓ You agreed with the AI!</p>}
-            {c.myVote!==(c.aiWinner==="A"?"a":"b")&&c.aiWinner!=="Tie"&&<p style={{fontSize:11, color:C.rose, fontWeight:600, marginTop:4}}>You disagreed with AI — {Math.max(pctA,pctB)}% of the crowd agrees with you</p>}
+          <div style={{background:C.goldLight, borderRadius:12, padding:14, marginTop:10, border:`1px solid ${C.gold}40`}}>
+            <label style={{...S.label, color:C.gold, fontSize:9}}>Who agreed with who ✨</label>
+            <div style={{display:"flex", flexDirection:"column", gap:8}}>
+              <div style={{display:"flex", alignItems:"center", gap:8}}>
+                <span style={{fontSize:16}}>🫵</span>
+                <p style={{fontSize:12, color:C.textMid, margin:0, lineHeight:1.5}}>You agreed with <strong style={{color:c.myVote==="a"?C.rose:C.blue}}>{c.myVote==="a"?(c.displayA||"Person A"):(c.displayB||"Person B")}</strong></p>
+              </div>
+              <div style={{display:"flex", alignItems:"center", gap:8}}>
+                <span style={{fontSize:16}}>⚖️</span>
+                <p style={{fontSize:12, color:C.textMid, margin:0, lineHeight:1.5}}>AI agreed with <strong style={{color:c.aiWinner==="A"?C.rose:c.aiWinner==="B"?C.blue:C.gold}}>{c.aiWinner==="Tie"?"neither — it's a tie":c.aiWinner==="A"?(c.displayA||"Person A"):(c.displayB||"Person B")}</strong></p>
+              </div>
+              <div style={{display:"flex", alignItems:"center", gap:8}}>
+                <span style={{fontSize:16}}>👥</span>
+                <p style={{fontSize:12, color:C.textMid, margin:0, lineHeight:1.5}}>The crowd agreed with <strong style={{color:pctA>pctB?C.rose:pctB>pctA?C.blue:C.gold}}>{pctA>pctB?(c.displayA||"Person A"):pctB>pctA?(c.displayB||"Person B"):"neither — it's split"}</strong> {pctA!==pctB&&<span style={{fontSize:11, color:C.textLight}}>({Math.max(pctA,pctB)}%)</span>}</p>
+              </div>
+            </div>
+            {c.myVote===(c.aiWinner==="A"?"a":"b")&&<p style={{fontSize:11, color:C.teal, fontWeight:600, marginTop:8, paddingTop:8, borderTop:`1px solid ${C.gold}30`}}>You and the AI are on the same page</p>}
+            {c.myVote!==(c.aiWinner==="A"?"a":"b")&&c.aiWinner!=="Tie"&&<p style={{fontSize:11, color:C.rose, fontWeight:600, marginTop:8, paddingTop:8, borderTop:`1px solid ${C.gold}30`}}>You and the AI disagree</p>}
           </div>
           {c.isOwn&&<div style={{background:C.tealLight, borderRadius:12, padding:12, marginTop:10, border:`1px solid ${C.teal}40`}}><label style={{...S.label, color:C.teal, fontSize:9}}>Your case · public verdict ⚖️</label><p style={{fontSize:12, color:C.textMid, lineHeight:1.55}}>{pctA>pctB?`${pctA}% sided with ${c.displayA||"Person A"}. The crowd ${c.aiWinner==="A"?"agrees with":"disagrees with"} the AI.`:pctB>pctA?`${pctB}% sided with ${c.displayB||"Person B"}. The crowd ${c.aiWinner==="B"?"agrees with":"disagrees with"} the AI.`:"The public is perfectly split on your case!"}</p></div>}
         </div>
-      )}
+      ) : null}
 
       {/* ── COMMENTS — always visible ── */}
       <div style={S.card}>
@@ -1747,7 +1803,7 @@ function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onReport, rep
           )}
         </div>
       </div>
-      <button style={S.btnGhost} className="pop" onClick={onBack}>← Back to The Court</button>
+      <button style={S.btnGhost} className="pop" onClick={onBack}>← Back to the Community</button>
     </div>
   );
 }
@@ -1764,12 +1820,12 @@ function PrivacyScreen({ onBack }) {
 
       <div style={S.card}>
         <h3 style={{fontSize:15, fontWeight:700, color:C.text, marginBottom:8}}>1. Information We Collect</h3>
-        <p style={{fontSize:13, color:C.textMid, lineHeight:1.7, margin:0}}>When you use You Be The Judge ("the Service"), we collect the argument text you submit, anonymous display names you choose, and votes and comments you post to The Court. If you use our SMS notification feature, we collect your phone number solely for sending case updates. We do not require account creation or collect email addresses to use the core Service.</p>
+        <p style={{fontSize:13, color:C.textMid, lineHeight:1.7, margin:0}}>When you use You Be The Judge ("the Service"), we collect the argument text you submit, anonymous display names you choose, and votes and comments you post to the Community. If you use our SMS notification feature, we collect your phone number solely for sending case updates. We do not require account creation or collect email addresses to use the core Service.</p>
       </div>
 
       <div style={S.card}>
         <h3 style={{fontSize:15, fontWeight:700, color:C.text, marginBottom:8}}>2. How We Use Your Information</h3>
-        <p style={{fontSize:13, color:C.textMid, lineHeight:1.7, margin:0}}>Argument text is sent to Anthropic's Claude AI API to generate verdicts. This data is processed in real-time and is not stored by Anthropic for training purposes. We use your phone number (if provided) exclusively to send SMS notifications about your case status via Twilio. Community posts (votes, comments) are stored to power The Court feature and are visible to other users.</p>
+        <p style={{fontSize:13, color:C.textMid, lineHeight:1.7, margin:0}}>Argument text is sent to Anthropic's Claude AI API to generate verdicts. This data is processed in real-time and is not stored by Anthropic for training purposes. We use your phone number (if provided) exclusively to send SMS notifications about your case status via Twilio. Community posts (votes, comments) are stored to power the Community feature and are visible to other users.</p>
       </div>
 
       <div style={S.card}>
@@ -1823,7 +1879,7 @@ function TermsScreen({ onBack }) {
 
       <div style={S.card}>
         <h3 style={{fontSize:15, fontWeight:700, color:C.text, marginBottom:8}}>2. Description of Service</h3>
-        <p style={{fontSize:13, color:C.textMid, lineHeight:1.7, margin:0}}>You Be The Judge is an AI-powered argument resolution tool. Users submit two sides of an argument, and an AI judge (powered by Anthropic's Claude) provides a verdict. The Service also includes a community feature ("The Court") where users can vote and comment on anonymized cases.</p>
+        <p style={{fontSize:13, color:C.textMid, lineHeight:1.7, margin:0}}>You Be The Judge is an AI-powered argument resolution tool. Users submit two sides of an argument, and an AI judge (powered by Anthropic's Claude) provides a verdict. The Service also includes a Community feature where users can vote and comment on anonymized cases.</p>
       </div>
 
       <div style={S.card}>
@@ -1838,7 +1894,7 @@ function TermsScreen({ onBack }) {
 
       <div style={S.card}>
         <h3 style={{fontSize:15, fontWeight:700, color:C.text, marginBottom:8}}>5. Community Guidelines</h3>
-        <p style={{fontSize:13, color:C.textMid, lineHeight:1.7, margin:0}}>When participating in The Court, keep comments respectful and constructive. Personal attacks, hate speech, and harassment will not be tolerated. Comments that violate community guidelines may be removed without notice.</p>
+        <p style={{fontSize:13, color:C.textMid, lineHeight:1.7, margin:0}}>When participating in the Community, keep comments respectful and constructive. Personal attacks, hate speech, and harassment will not be tolerated. Comments that violate community guidelines may be removed without notice.</p>
       </div>
 
       <div style={S.card}>
@@ -1848,7 +1904,7 @@ function TermsScreen({ onBack }) {
 
       <div style={S.card}>
         <h3 style={{fontSize:15, fontWeight:700, color:C.text, marginBottom:8}}>7. Intellectual Property</h3>
-        <p style={{fontSize:13, color:C.textMid, lineHeight:1.7, margin:0}}>The Service, including its design, features, and branding, is owned by You Be The Judge. User-submitted arguments and comments remain the intellectual property of their respective authors, but by submitting content to The Court, you grant us a non-exclusive license to display that content within the Service.</p>
+        <p style={{fontSize:13, color:C.textMid, lineHeight:1.7, margin:0}}>The Service, including its design, features, and branding, is owned by You Be The Judge. User-submitted arguments and comments remain the intellectual property of their respective authors, but by submitting content to the Community, you grant us a non-exclusive license to display that content within the Service.</p>
       </div>
 
       <div style={S.card}>
