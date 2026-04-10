@@ -193,7 +193,45 @@ export default function YouBeTheJudge() {
     if (!id) { id = 'v_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('ybtj_visitor_id', id); }
     return id;
   });
+  const [authUser, setAuthUser] = useState(null);
   const recognitionRef = useRef(null);
+
+  const SUPABASE_URL = 'https://imqmuoavgklywiduqctl.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltcW11b2F2Z2tseXdpZHVxY3RsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3ODgxOTIsImV4cCI6MjA5MTM2NDE5Mn0.fLukKz5GTaxjW5jZXEojRwJ3A7DIYJ8zxXfnrRqJej8';
+
+  // Google OAuth: check for redirect callback or existing session
+  useEffect(() => {
+    const handleAuth = async () => {
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        const params = new URLSearchParams(hash.substring(1));
+        const accessToken = params.get('access_token');
+        if (accessToken) {
+          localStorage.setItem('ybtj_auth_token', accessToken);
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+      const token = localStorage.getItem('ybtj_auth_token');
+      if (token) {
+        try {
+          const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+            headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY }
+          });
+          if (res.ok) {
+            const user = await res.json();
+            setAuthUser({ name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User', email: user.email, avatar: user.user_metadata?.avatar_url, token });
+          } else { localStorage.removeItem('ybtj_auth_token'); }
+        } catch(e) { localStorage.removeItem('ybtj_auth_token'); }
+      }
+    };
+    handleAuth();
+  }, []);
+
+  const signInWithGoogle = () => {
+    const redirectTo = window.location.origin;
+    window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+  };
+  const signOut = () => { localStorage.removeItem('ybtj_auth_token'); setAuthUser(null); };
 
   // URL-based routing for /privacy, /terms, and /join/:code
   useEffect(() => {
@@ -390,7 +428,7 @@ export default function YouBeTheJudge() {
     try {
       const res = await fetch('/api/court?action=comment', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ caseId, username:MY_USERNAME, text, tag, visitorId })
+        body: JSON.stringify({ caseId, username: authUser?.name || MY_USERNAME, text, tag, visitorId })
       });
       const d = await res.json();
       if(d.data) {
@@ -547,8 +585,8 @@ export default function YouBeTheJudge() {
       {screen===SCREENS.VERDICT && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={personB} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={reset} onSubmitCourt={submitToCourt} setScreen={setScreen} caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} />}
       {screen===SCREENS.REMOTE_REVEAL && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={{...personB,side:remoteBSide}} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={resetFull} onSubmitCourt={submitToCourt} setScreen={setScreen} isRemote caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} />}
       {screen===SCREENS.HISTORY && <HistoryScreen history={history} onBack={()=>setScreen(SCREENS.HOME)} />}
-      {screen===SCREENS.COURT && <CourtScreen cases={courtCases} loading={courtLoading} onVote={voteOnCase} onSelect={c=>{setSelectedCase(c);loadCaseDetail(c.id);setScreen(SCREENS.CASE_DETAIL);}} onBack={()=>setScreen(SCREENS.HOME)} />}
-      {screen===SCREENS.CASE_DETAIL && currentCourtCase && <CaseDetailScreen c={currentCourtCase} onVote={side=>voteOnCase(currentCourtCase.id,side)} onComment={(text,tag)=>addComment(currentCourtCase.id,text,tag)} onReply={(commentId,text)=>addReply(currentCourtCase.id,commentId,text)} onLike={(commentId)=>toggleLike(currentCourtCase.id,commentId)} onReport={(commentId)=>reportComment(commentId)} reportedComments={reportedComments} onGetAIPicks={()=>getAISmartestComment(currentCourtCase.id,currentCourtCase.comments)} onBack={()=>setScreen(SCREENS.COURT)} judgeMode={judgeMode} />}
+      {screen===SCREENS.COURT && <CourtScreen cases={courtCases} loading={courtLoading} onVote={voteOnCase} onSelect={c=>{setSelectedCase(c);loadCaseDetail(c.id);setScreen(SCREENS.CASE_DETAIL);}} onBack={()=>setScreen(SCREENS.HOME)} authUser={authUser} onSignIn={signInWithGoogle} onSignOut={signOut} />}
+      {screen===SCREENS.CASE_DETAIL && currentCourtCase && <CaseDetailScreen c={currentCourtCase} onVote={side=>voteOnCase(currentCourtCase.id,side)} onComment={(text,tag)=>addComment(currentCourtCase.id,text,tag)} onReply={(commentId,text)=>addReply(currentCourtCase.id,commentId,text)} onLike={(commentId)=>toggleLike(currentCourtCase.id,commentId)} onReport={(commentId)=>reportComment(commentId)} reportedComments={reportedComments} onGetAIPicks={()=>getAISmartestComment(currentCourtCase.id,currentCourtCase.comments)} onBack={()=>setScreen(SCREENS.COURT)} judgeMode={judgeMode} authUser={authUser} onSignIn={signInWithGoogle} />}
       {screen===SCREENS.PRIVACY && <PrivacyScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
       {screen===SCREENS.TERMS && <TermsScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
       {/* Join error banner */}
@@ -1341,13 +1379,25 @@ function SubmitToCourtModal({ verdict, personA, personB, onSubmit, onClose }) {
 }
 
 // ── THE COURT ──────────────────────────────────────────────────
-function CourtScreen({ cases, loading, onVote, onSelect, onBack }) {
+function CourtScreen({ cases, loading, onVote, onSelect, onBack, authUser, onSignIn, onSignOut }) {
   const [cat, setCat] = useState("All");
   const [sort, setSort] = useState("hot");
   const filtered = cases.filter(c=>cat==="All"||c.category===cat).sort((a,b)=>sort==="hot"?b.totalVotes-a.totalVotes:b.id-a.id);
   return (
     <div style={S.screen} className="fade-in">
       <div style={{textAlign:"center", paddingTop:12}}><h2 style={S.title}>🏛️ The Court</h2><p style={S.sub}>Real arguments. Anonymous. Vote, then discuss.</p></div>
+      {authUser ? (
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 0",fontSize:13,color:C.textMid}}>
+          {authUser.avatar && <img src={authUser.avatar} style={{width:22,height:22,borderRadius:"50%"}} alt="" />}
+          <span>Signed in as <strong style={{color:C.text}}>{authUser.name}</strong></span>
+          <button onClick={onSignOut} style={{background:"none",border:"none",color:C.rose,cursor:"pointer",fontSize:13,textDecoration:"underline",padding:0}}>Sign out</button>
+        </div>
+      ) : (
+        <button onClick={onSignIn} className="pop" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,margin:"0 auto 8px",padding:"8px 20px",background:C.surface,border:`1px solid ${C.borderMid}`,borderRadius:8,cursor:"pointer",fontSize:13,color:C.text}}>
+          <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 010-9.18l-7.98-6.19a24.003 24.003 0 000 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Sign in with Google to comment
+        </button>
+      )}
       <div style={S.twoCol}>
         {[["hot","🔥 Hot"],["new","✨ New"]].map(([v,l])=><button key={v} style={{...S.btnGhost, background:sort===v?C.rose:C.surface, color:sort===v?"#fff":C.textMid, borderColor:sort===v?C.rose:C.borderMid}} className="pop" onClick={()=>setSort(v)}>{l}</button>)}
       </div>
@@ -1446,7 +1496,7 @@ function CourtBars({ pctA, pctB, myVote, displayA, displayB }) {
 }
 
 // ── CASE DETAIL + COMMENTS ─────────────────────────────────────
-function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onReport, reportedComments, onGetAIPicks, onBack, judgeMode }) {
+function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onReport, reportedComments, onGetAIPicks, onBack, judgeMode, authUser, onSignIn }) {
   const voteTotal = (c.votes.a||0) + (c.votes.b||0);
   const pctA = voteTotal > 0 ? Math.round((c.votes.a/voteTotal)*100) : 50;
   const pctB = voteTotal > 0 ? Math.round((c.votes.b/voteTotal)*100) : 50;
@@ -1654,7 +1704,17 @@ function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onReport, rep
 
         {/* Comment input */}
         <div style={{borderTop:`1px solid ${C.border}`, paddingTop:14}}>
-          <label style={{...S.label, fontSize:10}}>Add your take as <strong style={{color:C.text}}>{MY_USERNAME}</strong></label>
+          {!authUser ? (
+            <div style={{textAlign:"center",padding:"16px 0"}}>
+              <p style={{fontSize:12,color:C.textMid,marginBottom:10}}>Sign in to join the discussion</p>
+              <button onClick={onSignIn} className="pop" style={{display:"inline-flex",alignItems:"center",gap:8,padding:"9px 22px",background:C.surface,border:`1px solid ${C.borderMid}`,borderRadius:8,cursor:"pointer",fontSize:13,color:C.text,fontFamily:"inherit"}}>
+                <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 010-9.18l-7.98-6.19a24.003 24.003 0 000 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+                Sign in with Google
+              </button>
+            </div>
+          ) : (
+          <>
+          <label style={{...S.label, fontSize:10}}>Add your take as <strong style={{color:C.text}}>{authUser.name}</strong></label>
           <div style={{display:"flex", gap:5, flexWrap:"wrap", marginBottom:10}}>
             {COMMENT_TAGS.filter(t => !(isRelSafe && t.id==="FUNNY")).map(t=>(
               <button key={t.id} style={{background:selectedTag===t.id?t.bg:"transparent", border:`1.5px solid ${selectedTag===t.id?t.color:C.border}`, borderRadius:12, padding:"5px 10px", fontSize:10, color:selectedTag===t.id?t.color:C.textMid, cursor:"pointer", fontFamily:"inherit", fontWeight:selectedTag===t.id?700:500}} className="pop" onClick={()=>setSelectedTag(selectedTag===t.id?null:t.id)}>
@@ -1670,6 +1730,8 @@ function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onReport, rep
             </button>
           </div>
           {!selectedTag && commentText.length > 0 && <p style={{fontSize:11, color:C.rose, marginTop:6}}>Pick a comment type above ↑</p>}
+          </>
+          )}
         </div>
       </div>
       <button style={S.btnGhost} className="pop" onClick={onBack}>← Back to The Court</button>
