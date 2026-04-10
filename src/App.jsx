@@ -31,12 +31,12 @@ const SCREENS = {
   REMOTE_REVEAL:"remote_reveal",
 };
 
-const CATEGORIES = ["All","Relationship","Family","Work","Money","Roommates","Friends","Random"];
+const CATEGORIES = ["All","Relationship","Family","Work","Money","Roommates","Friends","General","Household","Let's Debate"];
 const ZODIAC = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
 const MBTI = ["INTJ","INTP","ENTJ","ENTP","INFJ","INFP","ENFJ","ENFP","ISTJ","ISFJ","ESTJ","ESFJ","ISTP","ISFP","ESTP","ESFP"];
 const LOVE_LANGS = ["Words of Affirmation","Acts of Service","Receiving Gifts","Quality Time","Physical Touch"];
 const ATTACHMENT = ["Secure","Anxious","Avoidant","Fearful-Avoidant"];
-const ARGUMENT_TOPICS = ["Chores & Household","Money & Finances","Parenting","Work-Life Balance","Social Plans","Jealousy","Communication","Future Plans","Food & Lifestyle","Who's Right in General"];
+const ARGUMENT_TOPICS = ["Chores & Household","Money & Finances","Parenting","Food & Lifestyle"];
 
 // Fun anonymous name generator
 const ADJECTIVES = ["Curious","Honest","Spicy","Chaotic","Logical","Dramatic","Calm","Bold","Witty","Sassy","Petty","Reasonable","Savage","Sweet"];
@@ -91,13 +91,13 @@ const MOCK_COURT = [
   { id:6, category:"Relationship", topic:"Reading partner's texts", displayA:"Mia", displayB:"Jake", sideA:"I had a gut feeling something was off. I checked and I was right — there were flirty messages.", sideB:"Privacy is non-negotiable. You could have just asked me. Going through my phone is a dealbreaker.", aiWinner:"B", aiHeadline:"Being right doesn't make the method okay.", aiRuling:"Jake's boundary around privacy is valid regardless of what was found. Trust violations can't be fixed by more trust violations.", votes:{a:41,b:59}, totalVotes:4521, isOwn:false, timeAgo:"6h ago", comments:[] },
   { id:7, category:"Money", topic:"Lending money to a best friend", displayA:"Dex", displayB:"Priya", sideA:"I lent her $800 six months ago and she hasn't even mentioned paying it back. I shouldn't have to ask.", sideB:"I fully plan to pay it back. Things have been tight. Real friends don't put a timeline on generosity.", aiWinner:"A", aiHeadline:"Six months of silence is not generosity — it's avoidance.", aiRuling:"Dex extended trust and Priya has not communicated proactively about repayment. At minimum, acknowledgment is owed.", votes:{a:73,b:27}, totalVotes:2891, isOwn:false, timeAgo:"12h ago", comments:[] },
   { id:8, category:"Work", topic:"Quiet quitting vs. loyalty", displayA:"Chris", displayB:"Dana", sideA:"I do exactly what I'm paid for — nothing more, nothing less. That's not quitting, that's having boundaries.", sideB:"Going above and beyond is how you grow. If everyone did the bare minimum, the company would collapse.", aiWinner:"A", aiHeadline:"Employment is a contract, not a loyalty oath.", aiRuling:"Chris is fulfilling the agreed terms of employment. The expectation of unpaid extra effort benefits employers disproportionately.", votes:{a:68,b:32}, totalVotes:5102, isOwn:false, timeAgo:"1d ago", comments:[] },
-  { id:9, category:"Social", topic:"Showing up late to everything", displayA:"Kai", displayB:"Lena", sideA:"I'm always 10-15 minutes late. It's just how I am. People who know me expect it.", sideB:"Being late every time tells me my time doesn't matter to you. It's disrespectful.", aiWinner:"B", aiHeadline:"Chronic lateness is a choice, not a personality trait.", aiRuling:"Lena correctly identifies that habitual tardiness communicates a lack of respect for others' time, regardless of intent.", votes:{a:12,b:88}, totalVotes:3847, isOwn:false, timeAgo:"2d ago", comments:[] },
+  { id:9, category:"Friends", topic:"Showing up late to everything", displayA:"Kai", displayB:"Lena", sideA:"I'm always 10-15 minutes late. It's just how I am. People who know me expect it.", sideB:"Being late every time tells me my time doesn't matter to you. It's disrespectful.", aiWinner:"B", aiHeadline:"Chronic lateness is a choice, not a personality trait.", aiRuling:"Lena correctly identifies that habitual tardiness communicates a lack of respect for others' time, regardless of intent.", votes:{a:12,b:88}, totalVotes:3847, isOwn:false, timeAgo:"2d ago", comments:[] },
   { id:10, category:"Roommates", topic:"Overnight guests without asking", displayA:"Niko", displayB:"Ava", sideA:"It's my apartment too. I don't need permission to have someone stay over.", sideB:"We share the space. Having a stranger in the living room at 7am without warning crosses a line.", aiWinner:"B", aiHeadline:"Shared space requires shared consent.", aiRuling:"Ava's expectation of advance notice is reasonable. Niko's autonomy doesn't override the shared nature of the living space.", votes:{a:22,b:78}, totalVotes:1956, isOwn:false, timeAgo:"3d ago", comments:[] },
 ].map(c => ({ ...c, comments: seedComments(c.id) }));
 
 const mockHistory = [
   { date:"Apr 3", topic:"Dishes in the sink", winner:"Alex", verdict:"Jordan didn't have a leg to stand on", category:"Chores & Household", scoreA:78, scoreB:34, caseName:"Dishgate" },
-  { date:"Mar 28", topic:"Being late to dinner", winner:"Jordan", verdict:"Alex was being unreasonable", category:"Social Plans", scoreA:41, scoreB:72, caseName:"The Dinner Incident" },
+  { date:"Mar 28", topic:"Being late to dinner", winner:"Jordan", verdict:"Alex was being unreasonable", category:"Friends", scoreA:41, scoreB:72, caseName:"The Dinner Incident" },
   { date:"Mar 15", topic:"Thermostat temperature", winner:"Tie", verdict:"Both need to meet in the middle", category:"Chores & Household", scoreA:55, scoreB:55, caseName:"Thermostatgate" },
   { date:"Mar 8", topic:"Money for concert tickets", winner:"Jordan", verdict:"Jordan made the stronger financial case", category:"Money & Finances", scoreA:38, scoreB:69, caseName:"TicketGate 2026" },
   { date:"Feb 22", topic:"Whose turn to cook", winner:"Alex", verdict:"Alex's evidence was undeniable", category:"Chores & Household", scoreA:81, scoreB:29, caseName:"The Kitchen Wars" },
@@ -171,7 +171,7 @@ export default function YouBeTheJudge() {
   const [history, setHistory] = useState(mockHistory);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showShare, setShowShare] = useState(false);
-  const [judgeMode, setJudgeMode] = useState("funny");
+  const [judgeMode, setJudgeMode] = useState("neutral");
   const [caseName, setCaseName] = useState("");
   const [courtCases, setCourtCases] = useState([]);
   const [selectedCase, setSelectedCase] = useState(null);
@@ -375,7 +375,7 @@ export default function YouBeTheJudge() {
   };
 
   const buildPrompt = () => {
-    const tones = { funny:"Witty and fun. End with a SHORT playful roast of the loser — punchy, not cruel.", neutral:"Calm, impartial, professional. No roast. Just fair analysis.", safe:"Warm and relationship-safe. Constructive, no winner-shaming, no roast." };
+    const tones = { funny:"Witty and fun. End with a SHORT playful roast of the loser — punchy, not cruel.", neutral:"Calm, impartial, professional. No roast. Just fair analysis." };
     let p = `You are a charming AI judge trained on debate frameworks. Analyze for consistency, evidence, emotional vs logical reasoning.\n\nTOPIC: "${topic||"General"}"\n\nPERSON A (${personA.name||"Person A"}): "${personA.side}"`;
     if (clarifyAnsA.length) p+=`\nClarifications from A:\n${clarifyQsA.map((q,i)=>`Q: ${q}\nA: ${clarifyAnsA[i]||"(skipped)"}`).join("\n")}`;
     p+=`\n\nPERSON B (${personB.name||"Person B"}): "${personB.side}"`;
@@ -533,7 +533,7 @@ export default function YouBeTheJudge() {
   const handleRemoteGetVerdict = async (bSide, bClarifyQs, bClarifyAns) => {
     if (!personA.side || !bSide) return;
     setLoading(true); setScreen(SCREENS.REMOTE_REVEAL);
-    const tones = { funny:"Witty and fun. End with a SHORT playful roast — punchy, not cruel.", neutral:"Calm, impartial, professional. No roast.", safe:"Warm, relationship-safe. No roast. Focus on growth." };
+    const tones = { funny:"Witty and fun. End with a SHORT playful roast — punchy, not cruel.", neutral:"Calm, impartial, professional. No roast." };
     let p = `You are a charming AI judge trained on debate frameworks.\n\nTOPIC: "${topic||"General"}"\n\nPERSON A (${personA.name||"Person A"}): "${personA.side}"`;
     if (clarifyAnsA.length) p+=`\nClarifications from A:\n${clarifyQsA.map((q,i)=>`Q: ${q}\nA: ${clarifyAnsA[i]||"(skipped)"}`).join("\n")}`;
     p+=`\n\nPERSON B (${personB.name||"Person B"}): "${bSide}"`;
@@ -597,8 +597,8 @@ export default function YouBeTheJudge() {
       {screen===SCREENS.RECORD_B && <RecordScreen person={personB} setPerson={setPersonB} name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="💙" recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={handleAfterRecordB} nextLoading={clarifyLoading} onBack={()=>clarifyQsA.length>0?setScreen(SCREENS.CLARIFY_A):setScreen(SCREENS.RECORD_A)} isFinal={true} otherPerson={personA} topic={topic} />}
       {screen===SCREENS.CLARIFY_B && <ClarifyScreen name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="💙" questions={clarifyQsB} answers={clarifyAnsB} setAnswers={setClarifyAnsB} onNext={()=>getVerdict()} onBack={()=>setScreen(SCREENS.RECORD_B)} isFinal />}
       {screen===SCREENS.PERSONALITY && <PersonalityScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} depth={personalityDepth} onNext={getVerdict} onBack={()=>clarifyQsB.length>0?setScreen(SCREENS.CLARIFY_B):setScreen(SCREENS.RECORD_B)} />}
-      {screen===SCREENS.VERDICT && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={personB} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={reset} onSubmitCourt={submitToCourt} setScreen={setScreen} caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} />}
-      {screen===SCREENS.REMOTE_REVEAL && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={{...personB,side:remoteBSide}} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={resetFull} onSubmitCourt={submitToCourt} setScreen={setScreen} isRemote caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} />}
+      {screen===SCREENS.VERDICT && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={personB} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={reset} onSubmitCourt={submitToCourt} setScreen={setScreen} caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} topic={topic} />}
+      {screen===SCREENS.REMOTE_REVEAL && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={{...personB,side:remoteBSide}} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={resetFull} onSubmitCourt={submitToCourt} setScreen={setScreen} isRemote caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} topic={topic} />}
       {screen===SCREENS.HISTORY && <HistoryScreen history={history} onBack={()=>setScreen(SCREENS.HOME)} />}
       {screen===SCREENS.COURT && <CourtScreen cases={courtCases} loading={courtLoading} onVote={voteOnCase} onSelect={c=>{if(!canViewCommunity()){setCommunityPaywall(true);return;} incrementCommunityViews();setSelectedCase(c);loadCaseDetail(c.id);setScreen(SCREENS.CASE_DETAIL);}} onBack={()=>setScreen(SCREENS.HOME)} authUser={authUser} onSignIn={signInWithGoogle} onSignOut={signOut} showPaywall={communityPaywall} onDismissPaywall={()=>setCommunityPaywall(false)} freeViewsLeft={COMMUNITY_FREE_LIMIT - getCommunityViews()} />}
       {screen===SCREENS.CASE_DETAIL && currentCourtCase && <CaseDetailScreen c={currentCourtCase} onVote={side=>voteOnCase(currentCourtCase.id,side)} onComment={(text,tag)=>addComment(currentCourtCase.id,text,tag)} onReply={(commentId,text)=>addReply(currentCourtCase.id,commentId,text)} onLike={(commentId)=>toggleLike(currentCourtCase.id,commentId)} onReport={(commentId)=>reportComment(commentId)} reportedComments={reportedComments} onGetAIPicks={()=>getAISmartestComment(currentCourtCase.id,currentCourtCase.comments)} onBack={()=>setScreen(SCREENS.COURT)} judgeMode={judgeMode} authUser={authUser} onSignIn={signInWithGoogle} />}
@@ -684,15 +684,15 @@ function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNoti
       </div>
 
       {/* Pro Judge upsell */}
-      <div style={{...S.card, background:`linear-gradient(135deg, ${C.lavLight}, #FFF8E8)`, borderColor:`${C.lavender}30`, cursor:"pointer"}} className="pop">
+      <div style={{...S.card, background:`linear-gradient(135deg, ${C.lavLight}, #FFF8E8)`, borderColor:`${C.lavender}30`, cursor:"pointer"}} className="pop" onClick={async()=>{try{const r=await fetch('/api/stripe?action=checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visitor_id:localStorage.getItem('ybtj_visitor_id')})});const d=await r.json();if(d.url){window.location.href=d.url;}else{alert('Unable to start checkout. Please try again.');console.error('Stripe response:',d);}}catch(e){alert('Something went wrong. Please try again.');console.error('Stripe error:',e);}}}>
         <div style={{display:"flex", gap:12, alignItems:"center"}}>
           <div style={{fontSize:28, flexShrink:0}}>👨‍⚖️</div>
           <div style={{flex:1}}>
             <div style={{display:"flex", alignItems:"center", gap:6, marginBottom:3}}>
-              <span style={{fontSize:14, fontWeight:800, color:C.lavender}}>Pro Judge</span>
+              <span style={{fontSize:14, fontWeight:800, color:C.lavender}}>Pro</span>
               <span style={{background:C.gold, color:"#fff", borderRadius:6, padding:"1px 7px", fontSize:9, fontWeight:700}}>$4.99/mo</span>
             </div>
-            <p style={{fontSize:11, color:C.textMid, margin:0, lineHeight:1.5}}>Unlimited verdicts, personality analysis, custom judge personas, and ad-free Court.</p>
+            <p style={{fontSize:11, color:C.textMid, margin:0, lineHeight:1.5}}>Unlimited verdicts, personality analysis, custom judge personas, and ad-free Community.</p>
           </div>
           <span style={{color:C.lavender, fontSize:16}}>→</span>
         </div>
@@ -735,7 +735,7 @@ function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNoti
 
 // ── SETUP ──────────────────────────────────────────────────────
 function SetupScreen({ personA, setPersonA, personB, setPersonB, topic, setTopic, usePersonality, setUsePersonality, personalityDepth, setPersonalityDepth, judgeMode, setJudgeMode, setScreen }) {
-  const MODES = [{id:"funny",icon:"😂",label:"Funny Roast",desc:"Witty ruling + roasts the loser"},{id:"neutral",icon:"⚖️",label:"Neutral Judge",desc:"Calm, fair, impartial"},{id:"safe",icon:"❤️",label:"Relationship-Safe",desc:"Constructive, no winner-shaming"}];
+  const MODES = [{id:"neutral",icon:"⚖️",label:"Neutral Judge",desc:"Calm, fair, impartial"},{id:"funny",icon:"😂",label:"Funny Roast",desc:"Witty ruling + roasts the loser"}];
   return (
     <div style={S.screen} className="fade-in">
       <div style={{textAlign:"center", paddingTop:12}}><h2 style={S.title}>Set the Scene 🎬</h2><p style={S.sub}>Who's arguing and what about?</p></div>
@@ -745,8 +745,8 @@ function SetupScreen({ personA, setPersonA, personB, setPersonB, topic, setTopic
         <div style={S.chipsRow}>{ARGUMENT_TOPICS.map(t=><span key={t} style={{...S.chip, background:topic===t?C.rose:C.surfaceWarm, color:topic===t?"#fff":C.textMid, borderColor:topic===t?C.rose:C.border}} onClick={()=>setTopic(t)}>{t}</span>)}</div>
       </div>
       <div style={S.twoCol}>
-        <div style={{...S.card, borderTop:`3px solid ${C.rose}`}}><label style={{...S.label, color:C.rose}}>Person A 🌸</label><input style={S.input} name="personA" placeholder="Their name" required value={personA.name} onChange={e=>setPersonA(p=>({...p,name:e.target.value}))} /></div>
-        <div style={{...S.card, borderTop:`3px solid ${C.blue}`}}><label style={{...S.label, color:C.blue}}>Person B 💙</label><input style={S.input} name="personB" placeholder="Their name" required value={personB.name} onChange={e=>setPersonB(p=>({...p,name:e.target.value}))} /></div>
+        <div style={{...S.card, borderTop:`3px solid ${C.border}`}}><label style={{...S.label, color:C.text}}>Person A</label><input style={S.input} name="personA" placeholder="Their name" required value={personA.name} onChange={e=>setPersonA(p=>({...p,name:e.target.value}))} /></div>
+        <div style={{...S.card, borderTop:`3px solid ${C.border}`}}><label style={{...S.label, color:C.text}}>Person B</label><input style={S.input} name="personB" placeholder="Their name" required value={personB.name} onChange={e=>setPersonB(p=>({...p,name:e.target.value}))} /></div>
       </div>
       <div style={S.card}>
         <label style={S.label}>Judge Vibe 🎭</label>
@@ -1006,10 +1006,10 @@ function RemoteBRecordScreen({ person, setPerson, recording, onStart, onStop, on
       </div>
       <div style={S.card}>
         <label style={S.label}>Or type your side ✍️</label>
-        <textarea style={S.textarea} placeholder={`What's your side of the story?`} value={person.side} onChange={e=>setPerson(p=>({...p,side:e.target.value.slice(0,500)}))} rows={5} maxLength={500} />
+        <textarea style={S.textarea} placeholder={`What's your side of the story?`} value={person.side} onChange={e=>setPerson(p=>({...p,side:e.target.value.slice(0,5000)}))} rows={5} maxLength={5000} />
         <div style={{display:"flex", justifyContent:"space-between", marginTop:4}}>
-          <span style={{fontSize:10, color:C.textLight}}>Min 50 · Max 500 chars</span>
-          <span style={{fontSize:10, fontWeight:600, color:person.side.length>450?person.side.length>480?C.rose:C.gold:C.textLight}}>{person.side.length}/500</span>
+          <span style={{fontSize:10, color:C.textLight}}>Min 50 · Max 5,000 chars</span>
+          <span style={{fontSize:10, fontWeight:600, color:person.side.length>4500?person.side.length>4800?C.rose:C.gold:C.textLight}}>{person.side.length}/5000</span>
         </div>
       </div>
       <div style={{...S.card, background:C.goldLight, borderColor:`${C.gold}40`}}>
@@ -1079,10 +1079,10 @@ function RecordScreen({ person, setPerson, name, color, colorLight, emoji, recor
       </div>
       <div style={S.card}>
         <label style={S.label}>Or type it out ✍️</label>
-        <textarea style={S.textarea} placeholder={`${name}, what's your side of the story?`} value={person.side} onChange={e=>setPerson(p=>({...p,side:e.target.value.slice(0,500)}))} rows={4} maxLength={500} />
+        <textarea style={S.textarea} placeholder={`${name}, what's your side of the story?`} value={person.side} onChange={e=>setPerson(p=>({...p,side:e.target.value.slice(0,5000)}))} rows={4} maxLength={5000} />
         <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: person.side ? 4 : 0}}>
-          <span style={{fontSize:10, color:C.textLight}}>Min 50 · Max 500 chars</span>
-          <span style={{fontSize:10, fontWeight:600, color:person.side.length>450?person.side.length>480?C.rose:C.gold:C.textLight}}>{person.side.length}/500</span>
+          <span style={{fontSize:10, color:C.textLight}}>Min 50 · Max 5,000 chars</span>
+          <span style={{fontSize:10, fontWeight:600, color:person.side.length>4500?person.side.length>4800?C.rose:C.gold:C.textLight}}>{person.side.length}/5000</span>
         </div>
         {person.side && (
           <div style={{marginTop:10}}>
@@ -1101,25 +1101,6 @@ function RecordScreen({ person, setPerson, name, color, colorLight, emoji, recor
           </div>
         )}
       </div>
-      <div style={S.card}>
-        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-          <div><label style={S.label}>Need more ammo? 💡</label><p style={{...S.sub, fontSize:11}}>AI suggests points you might've missed</p></div>
-          <button style={{background:C.goldLight, color:C.gold, border:`1.5px solid ${C.gold}40`, borderRadius:10, padding:"7px 12px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit"}} className="pop" onClick={suggestPoints} disabled={suggestingPoints||!person.side}>{suggestingPoints?"...":"Suggest"}</button>
-        </div>
-        {suggestedPoints.length>0&&<div style={{marginTop:10, display:"flex", flexDirection:"column", gap:6}}>{suggestedPoints.map((pt,i)=><div key={i} style={{background:C.goldLight, border:`1px solid ${C.gold}40`, borderRadius:10, padding:"9px 12px", display:"flex", alignItems:"center", gap:8, cursor:"pointer"}} className="pop" onClick={()=>addPoint(pt)}><span style={{fontSize:11, color:C.textMid, flex:1}}>+ {pt}</span><span style={{fontSize:10, color:C.gold, fontWeight:700}}>Add</span></div>)}</div>}
-      </div>
-      <div style={{...S.card, borderLeft:`3px solid ${color}`}}>
-        <label style={{...S.label, color}}>🔁 Add a rebuttal</label>
-        <p style={{...S.sub, fontSize:11, marginBottom:10}}>Thought of something else? Drop it here.</p>
-        <div style={{display:"flex", gap:8, alignItems:"flex-start"}}>
-          <textarea style={{...S.textarea, flex:1, marginBottom:0}} placeholder="One more thing..." value={rebuttalInput} onChange={e=>setRebuttalInput(e.target.value)} rows={2} />
-          <div style={{display:"flex", flexDirection:"column", gap:6}}>
-            <button style={{width:40, height:40, borderRadius:10, border:`1.5px solid ${rebuttalRec?color:C.border}`, background:rebuttalRec?color:C.surfaceWarm, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:rebuttalRec?"#fff":C.textMid}} onClick={rebuttalRec?stopRebuttalVoice:startRebuttalVoice}>{rebuttalRec?"⏹":"🎙"}</button>
-            <button style={{width:40, height:40, borderRadius:10, border:`1.5px solid ${C.border}`, background:C.surfaceWarm, fontSize:20, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:C.textMid}} disabled={!rebuttalInput.trim()} onClick={addRebuttal}>＋</button>
-          </div>
-        </div>
-        {rebuttals.map((r,i)=><div key={i} style={{background:C.surfaceWarm, border:`1px solid ${C.border}`, borderRadius:8, padding:"6px 10px", fontSize:11, color:C.textMid, marginTop:6}}>🔁 {r}</div>)}
-      </div>
       <div style={S.btnRow}>
         <button style={S.btnGhost} className="pop" onClick={onBack}>← Back</button>
         <button style={{...S.btnPrimary, flex:1, opacity:(person.side.length<50||nextLoading)?0.7:1}} className="pop" onClick={onNext} disabled={person.side.length<50||nextLoading}>
@@ -1133,6 +1114,15 @@ function RecordScreen({ person, setPerson, name, color, colorLight, emoji, recor
 // ── CLARIFY ────────────────────────────────────────────────────
 function ClarifyScreen({ name, color, colorLight, emoji, questions, answers, setAnswers, onNext, onBack, isFinal }) {
   const updateAnswer = (i, val) => { const u=[...answers]; u[i]=val; setAnswers(u); };
+  const [voiceIdx, setVoiceIdx] = useState(null);
+  const voiceRef = useRef(null);
+  const startVoice = (i) => {
+    if (!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)) return;
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition; const r=new SR(); r.continuous=true; r.interimResults=true; r.lang="en-US"; voiceRef.current=r; setVoiceIdx(i);
+    r.onresult=(e)=>{ let t=""; for(let j=0;j<e.results.length;j++) t+=e.results[j][0].transcript; updateAnswer(i, t); };
+    r.onerror=()=>setVoiceIdx(null); r.start();
+  };
+  const stopVoice=()=>{ if(voiceRef.current) voiceRef.current.stop(); setVoiceIdx(null); };
   return (
     <div style={S.screen} className="fade-in">
       <div style={{textAlign:"center", paddingTop:12}}>
@@ -1146,13 +1136,17 @@ function ClarifyScreen({ name, color, colorLight, emoji, questions, answers, set
           <div key={i} style={{marginBottom: i<questions.length-1?20:0}}>
             <label style={{...S.label, color, fontSize:10, marginBottom:6}}>{i+1} of {questions.length}</label>
             <p style={{fontSize:14, fontWeight:700, color:C.text, marginBottom:10, lineHeight:1.4}}>"{q}"</p>
-            <textarea style={S.textarea} placeholder="Your answer (optional — skip if you want)..." value={answers[i]||""} onChange={e=>updateAnswer(i, e.target.value)} rows={3} />
+            <div style={{display:"flex", gap:8, alignItems:"flex-start"}}>
+              <textarea style={{...S.textarea, flex:1, marginBottom:0}} placeholder="Your answer (optional)..." value={answers[i]||""} onChange={e=>updateAnswer(i, e.target.value)} rows={3} />
+              <button style={{width:40, height:40, borderRadius:10, border:`1.5px solid ${voiceIdx===i?color:C.border}`, background:voiceIdx===i?color:C.surfaceWarm, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:voiceIdx===i?"#fff":C.textMid, flexShrink:0}} onClick={voiceIdx===i?stopVoice:()=>startVoice(i)}>{voiceIdx===i?"⏹":"🎙"}</button>
+            </div>
           </div>
         ))}
       </div>
       <p style={{fontSize:11, color:C.textLight, textAlign:"center"}}>Answering helps the judge rule more accurately</p>
       <div style={S.btnRow}>
         <button style={S.btnGhost} className="pop" onClick={onBack}>← Back</button>
+        <button style={{...S.btnGhost, flex:1}} className="pop" onClick={onNext}>Skip →</button>
         <button style={{...S.btnPrimary, flex:1}} className="pop" onClick={onNext}>{isFinal?"⚖️ Get the Verdict":"Next →"}</button>
       </div>
     </div>
@@ -1166,14 +1160,14 @@ function PersonalityScreen({ personA, setPersonA, personB, setPersonB, depth, on
     <div style={S.screen} className="fade-in">
       <div style={{textAlign:"center", paddingTop:12}}><h2 style={S.title}>Personality Profiles 🔮</h2><p style={S.sub}>Help the judge understand who you really are</p></div>
       <div style={S.twoCol}>
-        <div style={{...S.card, borderTop:`3px solid ${C.rose}`}}>
-          <label style={{...S.label, color:C.rose}}>{personA.name||"Person A"} 🌸</label>
+        <div style={{...S.card, borderTop:`3px solid ${C.border}`}}>
+          <label style={{...S.label, color:C.text}}>{personA.name||"Person A"}</label>
           {(depth==="zodiac"||depth==="full")&&<Sel label="Zodiac ✨" value={personA.zodiac} onChange={v=>setPersonA(p=>({...p,zodiac:v}))} options={ZODIAC} />}
           {(depth==="mbti"||depth==="full")&&<Sel label="MBTI 🧠" value={personA.mbti} onChange={v=>setPersonA(p=>({...p,mbti:v}))} options={MBTI} />}
           {depth==="full"&&<><Sel label="Love Language 💛" value={personA.loveLanguage} onChange={v=>setPersonA(p=>({...p,loveLanguage:v}))} options={LOVE_LANGS} /><Sel label="Attachment 🔗" value={personA.attachment} onChange={v=>setPersonA(p=>({...p,attachment:v}))} options={ATTACHMENT} /></>}
         </div>
-        <div style={{...S.card, borderTop:`3px solid ${C.blue}`}}>
-          <label style={{...S.label, color:C.blue}}>{personB.name||"Person B"} 💙</label>
+        <div style={{...S.card, borderTop:`3px solid ${C.border}`}}>
+          <label style={{...S.label, color:C.text}}>{personB.name||"Person B"}</label>
           {(depth==="zodiac"||depth==="full")&&<Sel label="Zodiac ✨" value={personB.zodiac} onChange={v=>setPersonB(p=>({...p,zodiac:v}))} options={ZODIAC} />}
           {(depth==="mbti"||depth==="full")&&<Sel label="MBTI 🧠" value={personB.mbti} onChange={v=>setPersonB(p=>({...p,mbti:v}))} options={MBTI} />}
           {depth==="full"&&<><Sel label="Love Language 💛" value={personB.loveLanguage} onChange={v=>setPersonB(p=>({...p,loveLanguage:v}))} options={LOVE_LANGS} /><Sel label="Attachment 🔗" value={personB.attachment} onChange={v=>setPersonB(p=>({...p,attachment:v}))} options={ATTACHMENT} /></>}
@@ -1185,7 +1179,7 @@ function PersonalityScreen({ personA, setPersonA, personB, setPersonB, depth, on
 }
 
 // ── VERDICT ────────────────────────────────────────────────────
-function VerdictScreen({ verdict, loading, personA, personB, judgeMode, showConfetti, showShare, setShowShare, onReset, onSubmitCourt, setScreen, isRemote, caseName, setCaseName, onNameCase }) {
+function VerdictScreen({ verdict, loading, personA, personB, judgeMode, showConfetti, showShare, setShowShare, onReset, onSubmitCourt, setScreen, isRemote, caseName, setCaseName, onNameCase, topic }) {
   const [submitModal, setSubmitModal] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [nameSaved, setNameSaved] = useState(false);
@@ -1224,9 +1218,9 @@ function VerdictScreen({ verdict, loading, personA, personB, judgeMode, showConf
       )}
 
       <div style={S.twoCol}>
-        {[[personA.name||"Person A",C.rose,verdict.person_a_score,verdict.person_a_rationality,verdict.a_valid_points,"🌸"],[personB.name||"Person B",C.blue,verdict.person_b_score,verdict.person_b_rationality,verdict.b_valid_points,"💙"]].map(([name,color,score,logic,points,em])=>(
+        {[[personA.name||"Person A",C.rose,verdict.person_a_score,verdict.person_a_rationality,verdict.a_valid_points],[personB.name||"Person B",C.blue,verdict.person_b_score,verdict.person_b_rationality,verdict.b_valid_points]].map(([name,color,score,logic,points])=>(
           <div key={name} style={{...S.card, borderTop:`3px solid ${color}`}}>
-            <label style={{...S.label, color}}>{name} {em}</label>
+            <label style={{...S.label, color}}>{name}</label>
             <ScoreBar label="Overall" value={score} color={color} />
             <ScoreBar label="Logic" value={logic} color={color} />
             <div style={{marginTop:6}}>{(points||[]).map((pt,i)=><div key={i} style={{fontSize:10, color:C.textMid, marginBottom:3}}>✓ {pt}</div>)}</div>
@@ -1244,10 +1238,13 @@ function VerdictScreen({ verdict, loading, personA, personB, judgeMode, showConf
           <div style={{fontSize:32, marginBottom:8}}>🔮</div>
           <h3 style={{fontSize:15, fontWeight:800, color:C.lavender, marginBottom:6}}>Want a deeper analysis?</h3>
           <p style={{fontSize:12, color:C.textMid, lineHeight:1.6, marginBottom:14}}>Unlock personality-powered insights — see how your zodiac signs, MBTI types, love languages, and attachment styles shaped this argument.</p>
-          <div style={{display:"inline-block", background:C.lavender, color:"#fff", borderRadius:8, padding:"2px 10px", fontSize:10, fontWeight:700, marginBottom:12}}>PRO JUDGE</div>
+          <div style={{display:"inline-block", background:C.lavender, color:"#fff", borderRadius:8, padding:"2px 10px", fontSize:10, fontWeight:700, marginBottom:12}}>PRO</div>
           <p style={{fontSize:11, color:C.textLight}}>$4.99/month — unlimited verdicts + personality analysis + custom judges</p>
         </div>
       )}
+
+      {/* ── RESOLUTION PLAYBOOK (Pro only) ── */}
+      <ResolutionPlaybook verdict={verdict} personA={personA} personB={personB} topic={topic} />
 
       {/* ── NAME THIS CASE ── */}
       {!nameSaved ? (
@@ -1315,6 +1312,96 @@ function ScoreBar({ label, value, color }) {
   return (<div style={{marginBottom:8}}><div style={{display:"flex", justifyContent:"space-between", marginBottom:3}}><span style={{fontSize:9, letterSpacing:1.5, color:C.textLight, textTransform:"uppercase", fontWeight:600}}>{label}</span><span style={{fontSize:9, color, fontWeight:700}}>{value}%</span></div><div style={S.barTrack}><div style={{...S.barFill, width:`${value}%`, background:color}} className="bar-fill" /></div></div>);
 }
 
+// ── RESOLUTION PLAYBOOK (Pro only) ─────────────────────────────
+function ResolutionPlaybook({ verdict, personA, personB, topic }) {
+  const [playbook, setPlaybook] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const generatePlaybook = async () => {
+    setLoading(true);
+    try {
+      const prompt = `Based on this argument verdict, create a Resolution Playbook — actionable mediation steps both parties can follow to actually resolve this conflict.
+
+TOPIC: "${topic||"General"}"
+PERSON A (${personA.name||"Person A"}): "${personA.side}"
+PERSON B (${personB.name||"Person B"}): "${personB.side}"
+WINNER: ${verdict.winner}
+RULING: ${verdict.ruling}
+KEY FACTOR: ${verdict.key_deciding_factor||""}
+
+Respond ONLY with valid JSON (no markdown):
+{"title":"short playbook title","steps":[{"step":"Step title","action":"1-2 sentence action item for both parties","who":"both/winner/loser"},{"step":"Step 2","action":"...","who":"both"},{"step":"Step 3","action":"...","who":"both"}],"conversation_starter":"A specific opening line one person can say to start resolving this","ground_rules":["rule 1","rule 2","rule 3"]}`;
+      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tier:"free",max_tokens:800,messages:[{role:"user",content:prompt}]})});
+      const data = await res.json();
+      const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
+      setPlaybook(parsed);
+      setExpanded(true);
+    } catch(e) { console.error("Playbook error:",e); }
+    setLoading(false);
+  };
+
+  if (!playbook && !loading) {
+    return (
+      <div style={{...S.card, background:`linear-gradient(135deg, ${C.tealLight}, #fff)`, borderColor:`${C.teal}40`, textAlign:"center", padding:20}}>
+        <div style={{fontSize:32, marginBottom:8}}>📋</div>
+        <h3 style={{fontSize:15, fontWeight:800, color:C.teal, marginBottom:6}}>Resolution Playbook</h3>
+        <p style={{fontSize:12, color:C.textMid, lineHeight:1.6, marginBottom:14}}>Get actionable mediation steps to actually resolve this conflict — conversation starters, ground rules, and a step-by-step plan.</p>
+        <div style={{display:"inline-block", background:C.teal, color:"#fff", borderRadius:8, padding:"2px 10px", fontSize:10, fontWeight:700, marginBottom:12}}>PRO</div>
+        <button style={{...S.btnPrimary, background:`linear-gradient(135deg, ${C.teal}, #1E8A66)`, width:"100%", marginTop:8}} className="pop" onClick={async()=>{try{const r=await fetch('/api/stripe?action=checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visitor_id:localStorage.getItem('ybtj_visitor_id')})});const d=await r.json();if(d.url){window.location.href=d.url;}else{alert('Unable to start checkout. Please try again.');}}catch(e){alert('Something went wrong. Please try again.');}}}>
+          Unlock Resolution Playbook — $4.99/mo
+        </button>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div style={{...S.card, background:C.tealLight, borderColor:`${C.teal}40`, textAlign:"center", padding:20}}>
+        <div style={{fontSize:32, marginBottom:8}} className="spin-fun">📋</div>
+        <p style={{fontSize:13, fontWeight:600, color:C.teal}}>Building your Resolution Playbook...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{...S.card, background:`linear-gradient(135deg, ${C.tealLight}, #fff)`, borderColor:`${C.teal}40`}}>
+      <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer"}} onClick={()=>setExpanded(!expanded)}>
+        <div>
+          <label style={{...S.label, color:C.teal}}>📋 Resolution Playbook</label>
+          <p style={{fontSize:12, fontWeight:700, color:C.text, margin:0}}>{playbook.title}</p>
+        </div>
+        <span style={{fontSize:16, color:C.teal}}>{expanded?"▲":"▼"}</span>
+      </div>
+      {expanded && (
+        <div style={{marginTop:14}}>
+          {playbook.steps?.map((s,i)=>(
+            <div key={i} style={{background:C.surface, border:`1px solid ${C.teal}30`, borderRadius:12, padding:12, marginBottom:8}}>
+              <div style={{display:"flex", gap:8, alignItems:"center", marginBottom:4}}>
+                <span style={{background:C.teal, color:"#fff", borderRadius:"50%", width:22, height:22, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, flexShrink:0}}>{i+1}</span>
+                <span style={{fontSize:13, fontWeight:700, color:C.text}}>{s.step}</span>
+              </div>
+              <p style={{fontSize:12, color:C.textMid, lineHeight:1.6, margin:"0 0 0 30px"}}>{s.action}</p>
+            </div>
+          ))}
+          {playbook.conversation_starter && (
+            <div style={{background:C.goldLight, border:`1px solid ${C.gold}40`, borderRadius:12, padding:12, marginTop:4}}>
+              <label style={{...S.label, color:C.gold, fontSize:9}}>💬 Conversation Starter</label>
+              <p style={{fontSize:12, color:C.text, fontStyle:"italic", margin:0, lineHeight:1.5}}>"{playbook.conversation_starter}"</p>
+            </div>
+          )}
+          {playbook.ground_rules?.length > 0 && (
+            <div style={{marginTop:8}}>
+              <label style={{...S.label, color:C.teal, fontSize:9}}>Ground Rules</label>
+              {playbook.ground_rules.map((r,i)=><p key={i} style={{fontSize:11, color:C.textMid, margin:"0 0 4px", lineHeight:1.5}}>• {r}</p>)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── SUBMIT TO COURT ────────────────────────────────────────────
 function SubmitToCourtModal({ verdict, personA, personB, onSubmit, onClose }) {
   const [cat, setCat] = useState("Relationship");
@@ -1354,14 +1441,14 @@ function SubmitToCourtModal({ verdict, personA, personB, onSubmit, onClose }) {
         <div style={S.twoCol}>
           <div>
             <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4}}>
-              <span style={{fontSize:10, color:C.rose, fontWeight:700, letterSpacing:1}}>PERSON A 🌸</span>
+              <span style={{fontSize:10, color:C.textMid, fontWeight:700, letterSpacing:1}}>PERSON A</span>
               <button style={{fontSize:10, color:C.lavender, background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", fontWeight:600}} onClick={autoGenA}>✨ Auto</button>
             </div>
             <input style={{...S.input, marginBottom:0, fontSize:13}} placeholder="Person A" value={nameA} onChange={e=>setNameA(e.target.value.slice(0,20))} maxLength={20} />
           </div>
           <div>
             <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4}}>
-              <span style={{fontSize:10, color:C.blue, fontWeight:700, letterSpacing:1}}>PERSON B 💙</span>
+              <span style={{fontSize:10, color:C.textMid, fontWeight:700, letterSpacing:1}}>PERSON B</span>
               <button style={{fontSize:10, color:C.lavender, background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", fontWeight:600}} onClick={autoGenB}>✨ Auto</button>
             </div>
             <input style={{...S.input, marginBottom:0, fontSize:13}} placeholder="Person B" value={nameB} onChange={e=>setNameB(e.target.value.slice(0,20))} maxLength={20} />
@@ -1420,8 +1507,8 @@ function CourtScreen({ cases, loading, onVote, onSelect, onBack, authUser, onSig
           <div style={{...S.card, width:"100%", maxWidth:360, textAlign:"center", padding:28}} className="verdict-pop">
             <div style={{fontSize:40, marginBottom:12}}>🔒</div>
             <h3 style={{...S.title, fontSize:18, marginBottom:8}}>You've read your 5 free verdicts</h3>
-            <p style={{...S.sub, fontSize:12, marginBottom:20, lineHeight:1.6}}>Unlock unlimited Community access, personality analysis, custom judge personas, and more with Pro Judge.</p>
-            <button style={{...S.btnPrimary, marginBottom:10}} className="pop" onClick={async()=>{try{const r=await fetch('/api/stripe?action=checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visitor_id:localStorage.getItem('ybtj_visitor_id')})});const d=await r.json();if(d.url)window.location.href=d.url;}catch(e){}}}>Upgrade to Pro Judge — $4.99/mo</button>
+            <p style={{...S.sub, fontSize:12, marginBottom:20, lineHeight:1.6}}>Unlock unlimited Community access, personality analysis, custom judge personas, and more with Pro.</p>
+            <button style={{...S.btnPrimary, marginBottom:10}} className="pop" onClick={async()=>{try{const r=await fetch('/api/stripe?action=checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visitor_id:localStorage.getItem('ybtj_visitor_id')})});const d=await r.json();if(d.url){window.location.href=d.url;}else{alert('Unable to start checkout. Please try again.');console.error('Stripe response:',d);}}catch(e){alert('Something went wrong. Please try again.');console.error('Stripe error:',e);}}}>Upgrade to Pro — $4.99/mo</button>
             <button style={S.btnGhost} onClick={onDismissPaywall}>Maybe later</button>
           </div>
         </div>
@@ -1591,7 +1678,7 @@ function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onReport, rep
   };
 
   const tagInfo = (tagId) => COMMENT_TAGS.find(t=>t.id===tagId)||COMMENT_TAGS[0];
-  const isRelSafe = judgeMode === "safe";
+  const isRelSafe = false;
 
   const CommentCard = ({ cm, isTop }) => {
     const t = tagInfo(cm.tag);
