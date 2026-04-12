@@ -581,9 +581,9 @@ export default function YouBeTheJudge() {
       {screen===SCREENS.REMOTE_WAITING && <RemoteWaitingScreen code={remoteCode} personA={personA} personB={personB} topic={topic} remoteStatus={remoteStatus} onSimulateB={()=>{ setRemoteStatus("submitted"); setTimeout(()=>{setRemoteBSide("Look, I've been very clear about my feelings here. I told them exactly how this made me feel and instead of engaging with what I said, they deflected and made it about something else entirely. The pattern is consistent — I raise an issue, they change the subject. I need them to actually hear me, not just wait for their turn to talk."); setRemoteStatus("ready");},1500); }} onReveal={()=>handleRemoteGetVerdict(remoteBSide, remoteBClarifyQs, remoteBClarifyAns)} />}
       {screen===SCREENS.REMOTE_B_LANDING && <RemoteBLandingScreen code={remoteCode} topic={topic} personBName={personB.name} onStart={()=>setScreen(SCREENS.REMOTE_B_RECORD)} />}
       {screen===SCREENS.REMOTE_B_RECORD && <RemoteBRecordScreen person={personB} setPerson={setPersonB} recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={(side)=>{ getClarifyQuestions(side, personA.side, (qs)=>{ if(qs.length>0){setRemoteBClarifyQs(qs);setRemoteBClarifyAns(new Array(qs.length).fill(""));setScreen(SCREENS.REMOTE_B_CLARIFY);}else{setRemoteBSide(side);setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}});}} topic={topic} />}
-      {screen===SCREENS.REMOTE_B_CLARIFY && <ClarifyScreen name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="💙" questions={remoteBClarifyQs} answers={remoteBClarifyAns} setAnswers={setRemoteBClarifyAns} onNext={()=>{setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}} onBack={()=>setScreen(SCREENS.REMOTE_B_RECORD)} isFinal />}
-      {screen===SCREENS.RECORD_A && <RecordScreen person={personA} setPerson={setPersonA} name={personA.name||"Person A"} color={C.rose} colorLight={C.roseLight} emoji="🌸" recording={recording&&activeRecorder==="A"} onStart={()=>startVoice("A")} onStop={stopVoice} onNext={()=>{ if(remoteMode){ getClarifyQuestions(personA.side,"",(qs)=>{ if(qs.length>0){setClarifyQsA(qs);setClarifyAnsA(new Array(qs.length).fill(""));setScreen(SCREENS.CLARIFY_A);}else setScreen(SCREENS.REMOTE_WAITING);}); }else handleAfterRecordA(); }} nextLoading={clarifyLoading} onBack={()=>setScreen(remoteMode?SCREENS.REMOTE_SEND:SCREENS.SETUP)} otherPerson={personB} topic={topic} />}
-      {screen===SCREENS.CLARIFY_A && <ClarifyScreen name={personA.name||"Person A"} color={C.rose} colorLight={C.roseLight} emoji="🌸" questions={clarifyQsA} answers={clarifyAnsA} setAnswers={setClarifyAnsA} onNext={()=>remoteMode?setScreen(SCREENS.REMOTE_WAITING):setScreen(SCREENS.HANDOFF)} onBack={()=>setScreen(SCREENS.RECORD_A)} />}
+      {screen===SCREENS.REMOTE_B_CLARIFY && <ClarifyScreen name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" questions={remoteBClarifyQs} answers={remoteBClarifyAns} setAnswers={setRemoteBClarifyAns} onNext={()=>{setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}} onBack={()=>setScreen(SCREENS.REMOTE_B_RECORD)} isFinal />}
+      {screen===SCREENS.RECORD_A && <RecordScreen person={personA} setPerson={setPersonA} name={personA.name||"Person A"} color={C.textMid} colorLight={C.surfaceWarm} emoji="A" recording={recording&&activeRecorder==="A"} onStart={()=>startVoice("A")} onStop={stopVoice} onNext={()=>{ if(remoteMode){ getClarifyQuestions(personA.side,"",(qs)=>{ if(qs.length>0){setClarifyQsA(qs);setClarifyAnsA(new Array(qs.length).fill(""));setScreen(SCREENS.CLARIFY_A);}else setScreen(SCREENS.REMOTE_WAITING);}); }else handleAfterRecordA(); }} nextLoading={clarifyLoading} onBack={()=>setScreen(remoteMode?SCREENS.REMOTE_SEND:SCREENS.SETUP)} otherPerson={personB} topic={topic} />}
+      {screen===SCREENS.CLARIFY_A && <ClarifyScreen name={personA.name||"Person A"} color={C.textMid} colorLight={C.surfaceWarm} emoji="A" questions={clarifyQsA} answers={clarifyAnsA} setAnswers={setClarifyAnsA} onNext={()=>remoteMode?setScreen(SCREENS.REMOTE_WAITING):setScreen(SCREENS.HANDOFF)} onBack={()=>setScreen(SCREENS.RECORD_A)} />}
       {screen===SCREENS.HANDOFF && (
         <div style={S.screen} className="fade-in">
           <div style={{...S.card, textAlign:'center', padding:'60px 24px', marginTop:60}}>
@@ -594,8 +594,8 @@ export default function YouBeTheJudge() {
           </div>
         </div>
       )}
-      {screen===SCREENS.RECORD_B && <RecordScreen person={personB} setPerson={setPersonB} name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="💙" recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={handleAfterRecordB} nextLoading={clarifyLoading} onBack={()=>clarifyQsA.length>0?setScreen(SCREENS.CLARIFY_A):setScreen(SCREENS.RECORD_A)} isFinal={true} otherPerson={personA} topic={topic} />}
-      {screen===SCREENS.CLARIFY_B && <ClarifyScreen name={personB.name||"Person B"} color={C.blue} colorLight={C.blueLight} emoji="💙" questions={clarifyQsB} answers={clarifyAnsB} setAnswers={setClarifyAnsB} onNext={()=>getVerdict()} onBack={()=>setScreen(SCREENS.RECORD_B)} isFinal />}
+      {screen===SCREENS.RECORD_B && <RecordScreen person={personB} setPerson={setPersonB} name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={handleAfterRecordB} nextLoading={clarifyLoading} onBack={()=>clarifyQsA.length>0?setScreen(SCREENS.CLARIFY_A):setScreen(SCREENS.RECORD_A)} isFinal={true} otherPerson={personA} topic={topic} />}
+      {screen===SCREENS.CLARIFY_B && <ClarifyScreen name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" questions={clarifyQsB} answers={clarifyAnsB} setAnswers={setClarifyAnsB} onNext={()=>getVerdict()} onBack={()=>setScreen(SCREENS.RECORD_B)} isFinal />}
       {screen===SCREENS.PERSONALITY && <PersonalityScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} depth={personalityDepth} onNext={getVerdict} onBack={()=>clarifyQsB.length>0?setScreen(SCREENS.CLARIFY_B):setScreen(SCREENS.RECORD_B)} />}
       {screen===SCREENS.VERDICT && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={personB} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={reset} onSubmitCourt={submitToCourt} setScreen={setScreen} caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} topic={topic} />}
       {screen===SCREENS.REMOTE_REVEAL && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={{...personB,side:remoteBSide}} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={resetFull} onSubmitCourt={submitToCourt} setScreen={setScreen} isRemote caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} topic={topic} />}
@@ -902,16 +902,16 @@ function RemoteWaitingScreen({ code, personA, personB, topic, remoteStatus, onSi
       {/* Status card */}
       <div style={S.card}>
         <div style={{display:"flex", flexDirection:"column", gap:10}}>
-          <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:C.roseLight, borderRadius:12, border:`1px solid ${C.rose}40`}}>
+          <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:C.surfaceWarm, borderRadius:12, border:`1px solid ${C.border}`}}>
             <div style={{display:"flex", gap:8, alignItems:"center"}}>
-              <span style={{fontSize:16}}>🌸</span>
+              <span style={{fontSize:13, fontWeight:700, color:C.textMid}}>A</span>
               <span style={{fontSize:13, fontWeight:700, color:C.text}}>{personA.name||"Person A"} (you)</span>
             </div>
             <span style={{background:C.teal, color:"#fff", borderRadius:8, fontSize:10, fontWeight:700, padding:"3px 9px"}}>✓ Submitted</span>
           </div>
           <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:remoteStatus==="waiting"?C.surfaceWarm:remoteStatus==="submitted"?C.goldLight:C.tealLight, borderRadius:12, border:`1px solid ${remoteStatus==="waiting"?C.border:remoteStatus==="submitted"?`${C.gold}40`:`${C.teal}40`}`}}>
             <div style={{display:"flex", gap:8, alignItems:"center"}}>
-              <span style={{fontSize:16}}>💙</span>
+              <span style={{fontSize:13, fontWeight:700, color:C.textMid}}>B</span>
               <span style={{fontSize:13, fontWeight:700, color:C.text}}>{personB.name||"Person B"}</span>
             </div>
             {remoteStatus==="waiting" && <span style={{background:C.gold, color:"#fff", borderRadius:8, fontSize:10, fontWeight:700, padding:"3px 9px"}}>⏳ Waiting…</span>}
@@ -960,7 +960,7 @@ function RemoteBLandingScreen({ code, topic, personBName, onStart }) {
       </div>
 
       <div style={{...S.card, background:`linear-gradient(135deg, ${C.blueLight}, #fff)`, textAlign:"center", padding:24}}>
-        <div style={{fontSize:28, marginBottom:10}}>💙</div>
+        <div style={{fontSize:28, marginBottom:10}}>⚖️</div>
         <h3 style={{fontSize:16, fontWeight:800, color:C.text, marginBottom:8}}>{personBName||"Person B"}, it's your turn</h3>
         <p style={{fontSize:12, color:C.textMid, lineHeight:1.6, marginBottom:4}}><strong>Topic:</strong> {topic||"General dispute"}</p>
         <p style={{fontSize:11, color:C.textLight, lineHeight:1.6}}>The other person has already submitted their side. You won't see it until after you submit yours. The verdict reveals simultaneously for both of you.</p>
@@ -977,7 +977,7 @@ function RemoteBLandingScreen({ code, topic, personBName, onStart }) {
       </div>
 
       <button style={S.btnPrimary} className="pop" onClick={onStart}>
-        💙 Submit My Side
+        Submit My Side
       </button>
     </div>
   );
@@ -993,8 +993,8 @@ function RemoteBRecordScreen({ person, setPerson, recording, onStart, onStop, on
   return (
     <div style={S.screen} className="fade-in">
       <div style={{textAlign:"center", paddingTop:12}}>
-        <div style={{width:52, height:52, borderRadius:"50%", background:C.blueLight, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 8px", fontSize:24}}>💙</div>
-        <h2 style={{...S.title, color:C.blue}}>Your Side</h2>
+        <div style={{width:52, height:52, borderRadius:"50%", background:C.surfaceWarm, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 8px", fontSize:24}}>B</div>
+        <h2 style={{...S.title, color:C.text}}>Your Side</h2>
         <p style={S.sub}>Speak your truth. The other person can't see this yet.</p>
       </div>
       <div style={{...S.card, textAlign:"center", borderColor:recording?C.blue:C.border, background:recording?C.blueLight:C.surface, transition:"all 0.3s"}}>
@@ -1790,8 +1790,8 @@ function CaseDetailScreen({ c, onVote, onComment, onReply, onLike, onReport, rep
       <p style={{...S.sub, marginBottom:4}}>{c.totalVotes.toLocaleString()} votes · {(c.comments||[]).length} comments 👀</p>
       <p style={{fontSize:12, color:C.textLight, marginBottom:4}}>{c.displayA||"Person A"} vs {c.displayB||"Person B"}</p>
 
-      <div style={{...S.card, borderLeft:`3px solid ${C.rose}`}}><label style={{...S.label, color:C.rose}}>{c.displayA||"Person A"} 🌸</label><p style={{fontSize:13, color:C.text, lineHeight:1.7}}>"{c.sideA}"</p></div>
-      <div style={{...S.card, borderLeft:`3px solid ${C.blue}`}}><label style={{...S.label, color:C.blue}}>{c.displayB||"Person B"} 💙</label><p style={{fontSize:13, color:C.text, lineHeight:1.7}}>"{c.sideB}"</p></div>
+      <div style={{...S.card, borderLeft:`3px solid ${C.rose}`}}><label style={{...S.label, color:C.rose}}>{c.displayA||"Person A"}</label><p style={{fontSize:13, color:C.text, lineHeight:1.7}}>"{c.sideA}"</p></div>
+      <div style={{...S.card, borderLeft:`3px solid ${C.blue}`}}><label style={{...S.label, color:C.blue}}>{c.displayB||"Person B"}</label><p style={{fontSize:13, color:C.text, lineHeight:1.7}}>"{c.sideB}"</p></div>
 
       {/* Vote to see results — only gates verdict/breakdown, not comments */}
       {!hasVoted && !tallying ? (
