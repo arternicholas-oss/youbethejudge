@@ -524,10 +524,61 @@ export default function YouBeTheJudge() {
     setScreen(SCREENS.HOME);
   };
 
-  const generateRemoteCode = () => {
+  const generateRemoteCode = async () => {
+    try {
+      const res = await fetch("/api/case?action=create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          personAName: personA.name || "Person A",
+          personBName: personB.name || "Person B",
+          topic: topic || "",
+        }),
+      });
+      const data = await res.json();
+      if (data.code) {
+        setRemoteCode(data.code);
+        return data.code;
+      }
+    } catch (e) {
+      console.error("Failed to create remote case:", e);
+    }
+    // Fallback to client-side code if API fails
     const code = Math.random().toString(36).substring(2,8).toUpperCase();
     setRemoteCode(code);
     return code;
+  };
+
+  const submitPersonAToRedis = async (code) => {
+    try {
+      await fetch(`/api/case?action=submit_a&code=${code||remoteCode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          side: personA.side,
+          clarifyQs: clarifyQsA,
+          clarifyAns: clarifyAnsA,
+        }),
+      });
+    } catch (e) {
+      console.error("Failed to submit Person A side:", e);
+    }
+  };
+
+  const submitPersonBToRedis = async (side, cQs, cAns) => {
+    try {
+      await fetch(`/api/case?action=submit_b&code=${remoteCode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          side: side || personB.side,
+          clarifyQs: cQs || remoteBClarifyQs,
+          clarifyAns: cAns || remoteBClarifyAns,
+        }),
+      });
+    } catch (e) {
+      console.error("Failed to submit Person B side:", e);
+    }
   };
 
   const handleRemoteGetVerdict = async (bSide, bClarifyQs, bClarifyAns) => {
@@ -558,7 +609,8 @@ export default function YouBeTheJudge() {
   const handleAfterRecordA = () => {
     getClarifyQuestions(personA.side, personB.side, (qs) => {
       if (qs.length > 0) { setClarifyQsA(qs); setClarifyAnsA(new Array(qs.length).fill("")); setScreen(SCREENS.CLARIFY_A); }
-      else setScreen(remoteMode ? SCREENS.RECORD_B : SCREENS.HANDOFF);
+      else if (remoteMode) { submitPersonAToRedis(); setScreen(SCREENS.REMOTE_WAITING); }
+      else setScreen(SCREENS.HANDOFF);
     });
   };
 
@@ -575,15 +627,15 @@ export default function YouBeTheJudge() {
     <div style={S.root}>
       <style>{css}</style>
       {screen===SCREENS.HOME && <HomeScreen setScreen={setScreen} history={history} notifications={notifications} showNotifs={showNotifs} setShowNotifs={setShowNotifs} markNotifsRead={markNotifsRead} />}
-      {screen===SCREENS.MODE_SELECT && <ModeSelectScreen topic={topic} personA={personA} personB={personB} onSamePhone={()=>{setRemoteMode(false);setScreen(SCREENS.RECORD_A);}} onRemote={()=>{setRemoteMode(true);generateRemoteCode();setScreen(SCREENS.REMOTE_SEND);}} onBack={()=>setScreen(SCREENS.SETUP)} />}
+      {screen===SCREENS.MODE_SELECT && <ModeSelectScreen topic={topic} personA={personA} personB={personB} onSamePhone={()=>{setRemoteMode(false);setScreen(SCREENS.RECORD_A);}} onRemote={async()=>{setRemoteMode(true);await generateRemoteCode();setScreen(SCREENS.REMOTE_SEND);}} onBack={()=>setScreen(SCREENS.SETUP)} />}
       {screen===SCREENS.SETUP && <SetupScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} topic={topic} setTopic={setTopic} usePersonality={usePersonality} setUsePersonality={setUsePersonality} personalityDepth={personalityDepth} setPersonalityDepth={setPersonalityDepth} judgeMode={judgeMode} setJudgeMode={setJudgeMode} setScreen={setScreen} />}
       {screen===SCREENS.REMOTE_SEND && <RemoteSendScreen code={remoteCode} personA={personA} personB={personB} topic={topic} onBack={()=>setScreen(SCREENS.SETUP)} onRecordMySide={()=>setScreen(SCREENS.RECORD_A)} />}
       {screen===SCREENS.REMOTE_WAITING && <RemoteWaitingScreen code={remoteCode} personA={personA} personB={personB} topic={topic} remoteStatus={remoteStatus} onSimulateB={()=>{ setRemoteStatus("submitted"); setTimeout(()=>{setRemoteBSide("Look, I've been very clear about my feelings here. I told them exactly how this made me feel and instead of engaging with what I said, they deflected and made it about something else entirely. The pattern is consistent — I raise an issue, they change the subject. I need them to actually hear me, not just wait for their turn to talk."); setRemoteStatus("ready");},1500); }} onReveal={()=>handleRemoteGetVerdict(remoteBSide, remoteBClarifyQs, remoteBClarifyAns)} />}
       {screen===SCREENS.REMOTE_B_LANDING && <RemoteBLandingScreen code={remoteCode} topic={topic} personBName={personB.name} onStart={()=>setScreen(SCREENS.REMOTE_B_RECORD)} />}
-      {screen===SCREENS.REMOTE_B_RECORD && <RemoteBRecordScreen person={personB} setPerson={setPersonB} recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={(side)=>{ getClarifyQuestions(side, personA.side, (qs)=>{ if(qs.length>0){setRemoteBClarifyQs(qs);setRemoteBClarifyAns(new Array(qs.length).fill(""));setScreen(SCREENS.REMOTE_B_CLARIFY);}else{setRemoteBSide(side);setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}});}} topic={topic} />}
-      {screen===SCREENS.REMOTE_B_CLARIFY && <ClarifyScreen name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" questions={remoteBClarifyQs} answers={remoteBClarifyAns} setAnswers={setRemoteBClarifyAns} onNext={()=>{setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}} onBack={()=>setScreen(SCREENS.REMOTE_B_RECORD)} isFinal />}
-      {screen===SCREENS.RECORD_A && <RecordScreen person={personA} setPerson={setPersonA} name={personA.name||"Person A"} color={C.textMid} colorLight={C.surfaceWarm} emoji="A" recording={recording&&activeRecorder==="A"} onStart={()=>startVoice("A")} onStop={stopVoice} onNext={()=>{ if(remoteMode){ getClarifyQuestions(personA.side,"",(qs)=>{ if(qs.length>0){setClarifyQsA(qs);setClarifyAnsA(new Array(qs.length).fill(""));setScreen(SCREENS.CLARIFY_A);}else setScreen(SCREENS.REMOTE_WAITING);}); }else handleAfterRecordA(); }} nextLoading={clarifyLoading} onBack={()=>setScreen(remoteMode?SCREENS.REMOTE_SEND:SCREENS.SETUP)} otherPerson={personB} topic={topic} />}
-      {screen===SCREENS.CLARIFY_A && <ClarifyScreen name={personA.name||"Person A"} color={C.textMid} colorLight={C.surfaceWarm} emoji="A" questions={clarifyQsA} answers={clarifyAnsA} setAnswers={setClarifyAnsA} onNext={()=>remoteMode?setScreen(SCREENS.REMOTE_WAITING):setScreen(SCREENS.HANDOFF)} onBack={()=>setScreen(SCREENS.RECORD_A)} />}
+      {screen===SCREENS.REMOTE_B_RECORD && <RemoteBRecordScreen person={personB} setPerson={setPersonB} recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={(side)=>{ getClarifyQuestions(side, personA.side, (qs)=>{ if(qs.length>0){setRemoteBClarifyQs(qs);setRemoteBClarifyAns(new Array(qs.length).fill(""));setScreen(SCREENS.REMOTE_B_CLARIFY);}else{setRemoteBSide(side);submitPersonBToRedis(side);setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}});}} topic={topic} />}
+      {screen===SCREENS.REMOTE_B_CLARIFY && <ClarifyScreen name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" questions={remoteBClarifyQs} answers={remoteBClarifyAns} setAnswers={setRemoteBClarifyAns} onNext={()=>{submitPersonBToRedis();setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}} onBack={()=>setScreen(SCREENS.REMOTE_B_RECORD)} isFinal />}
+      {screen===SCREENS.RECORD_A && <RecordScreen person={personA} setPerson={setPersonA} name={personA.name||"Person A"} color={C.textMid} colorLight={C.surfaceWarm} emoji="A" recording={recording&&activeRecorder==="A"} onStart={()=>startVoice("A")} onStop={stopVoice} onNext={()=>{ if(remoteMode){ getClarifyQuestions(personA.side,"",(qs)=>{ if(qs.length>0){setClarifyQsA(qs);setClarifyAnsA(new Array(qs.length).fill(""));setScreen(SCREENS.CLARIFY_A);}else{submitPersonAToRedis();setScreen(SCREENS.REMOTE_WAITING);}}); }else handleAfterRecordA(); }} nextLoading={clarifyLoading} onBack={()=>setScreen(remoteMode?SCREENS.REMOTE_SEND:SCREENS.SETUP)} otherPerson={personB} topic={topic} />}
+      {screen===SCREENS.CLARIFY_A && <ClarifyScreen name={personA.name||"Person A"} color={C.textMid} colorLight={C.surfaceWarm} emoji="A" questions={clarifyQsA} answers={clarifyAnsA} setAnswers={setClarifyAnsA} onNext={()=>{if(remoteMode){submitPersonAToRedis();setScreen(SCREENS.REMOTE_WAITING);}else{setScreen(SCREENS.HANDOFF);}}} onBack={()=>setScreen(SCREENS.RECORD_A)} />}
       {screen===SCREENS.HANDOFF && (
         <div style={S.screen} className="fade-in">
           <div style={{...S.card, textAlign:'center', padding:'60px 24px', marginTop:60}}>
