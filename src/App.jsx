@@ -544,6 +544,59 @@ export default function YouBeTheJudge() {
     return p;
   };
 
+  const buildGroupPrompt = (caseData) => {
+    const parts = (caseData.participants||[]).filter(p=>p.submitted);
+    const names = parts.map(p=>p.name);
+    const tones = { funny:"Witty and fun. End with a SHORT playful roast of the loser — punchy, not cruel.", neutral:"Calm, impartial, professional. No roast. Just fair analysis." };
+    let p = `You are a charming AI judge trained on debate frameworks. You're judging a GROUP argument with ${parts.length} people. Analyze each person's argument for consistency, evidence, emotional vs logical reasoning.\n\nTOPIC: "${caseData.topic||"General"}"`;
+    parts.forEach((part,i)=>{
+      const letter = String.fromCharCode(65+i);
+      p+=`\n\nPERSON ${letter} (${part.name}): "${part.side}"`;
+      if (part.clarifyAns && part.clarifyAns.length) {
+        p+=`\nClarifications from ${part.name}:\n${(part.clarifyQs||[]).map((q,j)=>`Q: ${q}\nA: ${part.clarifyAns[j]||"(skipped)"}`).join("\n")}`;
+      }
+    });
+    p+=`\n\nTONE: ${tones[judgeMode]||tones.neutral}`;
+    p+=`\n\nRespond ONLY with valid JSON (no markdown):\n{"winner":"${names.join(" or ")} or Tie","verdict_headline":"punchy headline under 10 words","ruling":"3-4 sentences analyzing the group debate","key_deciding_factor":"The single most important reason winner prevailed (1 sentence)","rankings":[${names.map(n=>`{"name":"${n}","score":0,"valid_points":["p1"]}`).join(",")}],"strongest_line":"Most compelling thing said — quote directly under 20 words","communication_tip":"one actionable tip for the group","roast":"${judgeMode==="funny"?"short roast of the loser":""}"}`;
+    return p;
+  };
+
+  const getGroupVerdict = async (caseData) => {
+    if (!caseData || caseData.status !== "all_submitted") { alert("Not all participants have submitted yet!"); return; }
+    if (!canUseVerdict()) { setScreen(SCREENS.PAYWALL); return; }
+    setLoading(true); setScreen(SCREENS.VERDICT);
+    await useVerdict();
+    try {
+      const tier = userProfile?.tier === 'pro' ? 'premium' : 'free';
+      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tier,isGroup:true,max_tokens:1500,messages:[{role:"user",content:buildGroupPrompt(caseData)}]})});
+      const data = await res.json();
+      const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
+      // Map group verdict to standard verdict shape for VerdictScreen
+      const rankings = parsed.rankings||[];
+      const winnerRank = rankings.find(r=>r.name===parsed.winner);
+      const topTwo = [...rankings].sort((a,b)=>(b.score||0)-(a.score||0));
+      setVerdict({
+        ...parsed,
+        person_a_score: topTwo[0]?.score||50,
+        person_b_score: topTwo[1]?.score||50,
+        a_valid_points: topTwo[0]?.valid_points||[],
+        b_valid_points: topTwo[1]?.valid_points||[],
+        isGroup: true,
+        rankings,
+      });
+      setShowConfetti(true); setTimeout(()=>setShowConfetti(false),2000);
+      // Set names from group data for verdict card
+      const parts = (caseData.participants||[]).filter(p=>p.submitted);
+      setPersonA(prev=>({...prev, name: parts[0]?.name||"Person A"}));
+      setPersonB(prev=>({...prev, name: parts[1]?.name||"Person B"}));
+      setTopic(caseData.topic||topic);
+      const cardParams = new URLSearchParams({ topic: caseData.topic||"General", winner: parsed.winner===parts[0]?.name?"A":"B", personA: parts[0]?.name||"Person A", personB: parts[1]?.name||"Person B", scoreA: String(topTwo[0]?.score||50), scoreB: String(topTwo[1]?.score||50), headline: parsed.verdict_headline||"", mode:"story" });
+      setVerdictCardUrl(`/api/verdict-card?${cardParams.toString()}`);
+      setHistory(h=>[{date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),topic:caseData.topic||"Group argument",winner:parsed.winner,verdict:parsed.verdict_headline,category:caseData.topic||"General",scoreA:topTwo[0]?.score||50,scoreB:topTwo[1]?.score||50,caseName:""},...h]);
+    } catch(e) { console.error("Group verdict error:", e); setVerdict({error:true,ruling:"Something went wrong. Please try again."}); }
+    setLoading(false);
+  };
+
   const getVerdict = async () => {
     if (!personA.side||!personB.side) { alert("Both people need to share their side first!"); return; }
     // Check verdict limit
@@ -822,7 +875,7 @@ export default function YouBeTheJudge() {
       {screen===SCREENS.PROFILE && <ProfileScreen user={userProfile} authUser={authUser} onSignOut={signOut} onBack={()=>setScreen(SCREENS.HOME)} onUpdateName={async(name)=>{ try{ const res=await fetch('/api/auth?action=update_profile',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${authToken}`},body:JSON.stringify({display_name:name})}); const d=await res.json(); if(d.user){setUserProfile(d.user);setAuthUser(prev=>({...prev,name:d.user.display_name}));}}catch(e){} }} />}
       {screen===SCREENS.PAYWALL && <PaywallScreen user={userProfile} onBuy={async(product)=>{ try{ const res=await fetch(`/api/stripe?action=checkout`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({product,user_id:userProfile?.id})}); const d=await res.json(); if(d.url) window.location.href=d.url; }catch(e){alert("Payment failed. Try again.");} }} onBack={()=>setScreen(SCREENS.HOME)} />}
       {screen===SCREENS.GROUP_SETUP && <GroupSetupScreen participants={groupParticipants} setParticipants={setGroupParticipants} topic={topic} setTopic={setTopic} personA={personA} setPersonA={setPersonA} onStart={async()=>{ try{ const res=await fetch('/api/case?action=create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({personAName:personA.name,topic,isGroup:true,participants:groupParticipants.filter(p=>p.name),phoneNumber:''})}); const d=await res.json(); if(d.code){setGroupCode(d.code);setGroupCaseData(d.case);setScreen(SCREENS.GROUP_WAITING);}}catch(e){alert("Failed to create group case.");} }} onBack={()=>setScreen(SCREENS.SETUP)} />}
-      {screen===SCREENS.GROUP_WAITING && <GroupWaitingScreen code={groupCode} caseData={groupCaseData} onRefresh={async()=>{ try{ const res=await fetch(`/api/case?code=${groupCode}`); if(res.ok){const d=await res.json();setGroupCaseData(d);}}catch(e){} }} onNudge={async()=>{ try{await fetch(`/api/case?code=${groupCode}&action=nudge`,{method:'POST'});}catch(e){} }} onBack={()=>setScreen(SCREENS.HOME)} />}
+      {screen===SCREENS.GROUP_WAITING && <GroupWaitingScreen code={groupCode} caseData={groupCaseData} onRefresh={async()=>{ try{ const res=await fetch(`/api/case?code=${groupCode}`); if(res.ok){const d=await res.json();setGroupCaseData(d);}}catch(e){} }} onNudge={async()=>{ try{await fetch(`/api/case?code=${groupCode}&action=nudge`,{method:'POST'});}catch(e){} }} onGetVerdict={()=>getGroupVerdict(groupCaseData)} onBack={()=>setScreen(SCREENS.HOME)} />}
       {screen===SCREENS.PRIVACY && <PrivacyScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
       {screen===SCREENS.TERMS && <TermsScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
       {/* Join error banner */}
@@ -2610,7 +2663,7 @@ function GroupSetupScreen({ participants, setParticipants, topic, setTopic, pers
 }
 
 // ── GROUP WAITING SCREEN ──────────────────────────────────────
-function GroupWaitingScreen({ code, caseData, onRefresh, onNudge, onBack }) {
+function GroupWaitingScreen({ code, caseData, onRefresh, onNudge, onGetVerdict, onBack }) {
   const [nudged, setNudged] = useState(false);
 
   if (!caseData) return <div style={S.screen}><p style={S.sub}>Loading...</p></div>;
@@ -2655,7 +2708,7 @@ function GroupWaitingScreen({ code, caseData, onRefresh, onNudge, onBack }) {
         <div style={{...S.card, background:`linear-gradient(135deg, ${C.roseLight}, ${C.blueLight})`, textAlign:"center", padding:24}}>
           <h3 style={{fontSize:17, fontWeight:800, color:C.text, marginBottom:8}}>Ready for the group verdict</h3>
           <p style={{fontSize:12, color:C.textMid, marginBottom:14}}>All {total} sides are sealed and ready.</p>
-          <button style={S.btnPrimary} className="pop">⚖️ Drop the Group Verdict</button>
+          <button style={S.btnPrimary} className="pop" onClick={onGetVerdict}>⚖️ Drop the Group Verdict</button>
         </div>
       )}
 

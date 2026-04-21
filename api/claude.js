@@ -26,11 +26,11 @@ const ALLOWED_MODELS = [
 ];
 
 // Tier-based token caps and model selection
-// Free tier: Haiku model with 800 token cap
-// Premium tier: Sonnet model with 1500 token cap
+// Free tier: Haiku model with 800 token cap (1200 for group)
+// Premium tier: Sonnet model with 1500 token cap (2000 for group)
 const TIER_CONFIG = {
-  free: { model: "claude-haiku-4-5-20251001", maxTokens: 800 },
-  premium: { model: "claude-sonnet-4-20250514", maxTokens: 1500 },
+  free: { model: "claude-haiku-4-5-20251001", maxTokens: 800, groupMaxTokens: 1200 },
+  premium: { model: "claude-sonnet-4-20250514", maxTokens: 1500, groupMaxTokens: 2000 },
 };
 
 export default async function handler(req, res) {
@@ -68,11 +68,13 @@ export default async function handler(req, res) {
     // Determine tier and get config (default to free)
     const tier = body.tier === "premium" ? "premium" : "free";
     const tierConfig = TIER_CONFIG[tier];
+    const isGroup = body.isGroup === true;
+    const tokenCap = isGroup ? tierConfig.groupMaxTokens : tierConfig.maxTokens;
 
     // Build request using tier-based model and token cap
     const sanitizedBody = {
       model: tierConfig.model,
-      max_tokens: Math.min(body.max_tokens || tierConfig.maxTokens, tierConfig.maxTokens),
+      max_tokens: Math.min(body.max_tokens || tokenCap, tokenCap),
       messages: body.messages.slice(0, 5), // Max 5 messages
     };
 
