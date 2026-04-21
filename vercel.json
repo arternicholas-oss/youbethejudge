@@ -8,7 +8,10 @@
     { "source": "/api/case", "destination": "/api/case" },
     { "source": "/api/court", "destination": "/api/court" },
     { "source": "/api/og", "destination": "/api/og" },
+    { "source": "/api/auth", "destination": "/api/auth" },
     { "source": "/api/stripe", "destination": "/api/stripe" },
+    { "source": "/api/debate", "destination": "/api/debate" },
+    { "source": "/api/verdict-card", "destination": "/api/verdict-card" },
     { "source": "/privacy", "destination": "/" },
     { "source": "/terms", "destination": "/" },
     { "source": "/join/:code", "destination": "/" }

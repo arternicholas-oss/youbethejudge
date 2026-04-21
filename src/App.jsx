@@ -29,6 +29,14 @@ const SCREENS = {
   REMOTE_B_RECORD:"remote_b_record",
   REMOTE_B_CLARIFY:"remote_b_clarify",
   REMOTE_REVEAL:"remote_reveal",
+  // Auth & account
+  LOGIN:"login", PROFILE:"profile",
+  // Group verdicts
+  GROUP_SETUP:"group_setup",
+  GROUP_WAITING:"group_waiting",
+  GROUP_SUBMIT:"group_submit",
+  // Paywall
+  PAYWALL:"paywall",
 };
 
 const CATEGORIES = ["All","Relationship","Family","Work","Money","Roommates","Friends","General","Household","Let's Debate"];
@@ -77,9 +85,9 @@ const getTimeAgo = (dateStr) => {
   return `${days}d ago`;
 };
 
-const DAILY_DEBATES = [
-  { id:1, topic:"Who should apologize first after a fight?", votes:[62,38], labels:["The one who started it","The one who escalated it"] },
-  { id:2, topic:"Is leaving dishes 'soaking' actually cleaning them?", votes:[29,71], labels:["Yes, it counts!","No, that's not cleaning 😂"] },
+// Daily debate loaded from API (replaces hardcoded data)
+const DAILY_DEBATES_FALLBACK = [
+  { id:"fallback_1", topic:"Who should apologize first after a fight?", options:["The one who started it","The one who escalated it"], votes:[62,38], totalVotes:100 },
 ];
 
 const MOCK_COURT = [
@@ -203,6 +211,25 @@ export default function YouBeTheJudge() {
     return id;
   });
   const [authUser, setAuthUser] = useState(null);
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('ybtj_session_token'));
+  const [userProfile, setUserProfile] = useState(null);
+  const [loginPhone, setLoginPhone] = useState("");
+  const [loginStep, setLoginStep] = useState("phone"); // phone | otp | done
+  const [loginOtp, setLoginOtp] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  // Daily debate state (API-driven)
+  const [dailyDebate, setDailyDebate] = useState(null);
+  const [debateVoted, setDebateVoted] = useState(null);
+  const [debateLoading, setDebateLoading] = useState(false);
+  // Group verdict state
+  const [groupParticipants, setGroupParticipants] = useState([{name:"",phone:""},{name:"",phone:""},{name:"",phone:""}]);
+  const [groupCode, setGroupCode] = useState("");
+  const [groupCaseData, setGroupCaseData] = useState(null);
+  const [groupParticipantIndex, setGroupParticipantIndex] = useState(null);
+  // Verdict card
+  const [verdictCardUrl, setVerdictCardUrl] = useState(null);
+
   const [communityPaywall, setCommunityPaywall] = useState(false);
   const recognitionRef = useRef(null);
 
@@ -214,42 +241,170 @@ export default function YouBeTheJudge() {
   const SUPABASE_URL = 'https://imqmuoavgklywiduqctl.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltcW11b2F2Z2tseXdpZHVxY3RsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3ODgxOTIsImV4cCI6MjA5MTM2NDE5Mn0.fLukKz5GTaxjW5jZXEojRwJ3A7DIYJ8zxXfnrRqJej8';
 
-  // Google OAuth: check for redirect callback or existing session
+  // Auth: restore session from token
   useEffect(() => {
-    const handleAuth = async () => {
+    const restoreSession = async () => {
+      // Handle Google OAuth redirect
       const hash = window.location.hash;
       if (hash && hash.includes('access_token')) {
         const params = new URLSearchParams(hash.substring(1));
-        const accessToken = params.get('access_token');
-        if (accessToken) {
-          localStorage.setItem('ybtj_auth_token', accessToken);
+        const googleToken = params.get('access_token');
+        if (googleToken) {
           window.history.replaceState(null, '', window.location.pathname);
+          try {
+            // Get Google user info then create/login via our auth API
+            const gRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+              headers: { 'Authorization': `Bearer ${googleToken}`, 'apikey': SUPABASE_ANON_KEY }
+            });
+            if (gRes.ok) {
+              const gUser = await gRes.json();
+              const loginRes = await fetch('/api/auth?action=google_login', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ google_id: gUser.id, email: gUser.email, name: gUser.user_metadata?.full_name, avatar_url: gUser.user_metadata?.avatar_url })
+              });
+              const loginData = await loginRes.json();
+              if (loginData.token) {
+                localStorage.setItem('ybtj_session_token', loginData.token);
+                setAuthToken(loginData.token);
+                setUserProfile(loginData.user);
+                setAuthUser({ name: loginData.user.display_name, email: loginData.user.email, avatar: loginData.user.avatar_url, token: loginData.token });
+              }
+            }
+          } catch(e) { console.error('Google auth failed:', e); }
         }
       }
-      const token = localStorage.getItem('ybtj_auth_token');
+      // Restore existing session
+      const token = localStorage.getItem('ybtj_session_token');
       if (token) {
         try {
-          const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-            headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY }
-          });
+          const res = await fetch('/api/auth?action=me', { headers: { 'Authorization': `Bearer ${token}` } });
           if (res.ok) {
-            const user = await res.json();
-            setAuthUser({ name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User', email: user.email, avatar: user.user_metadata?.avatar_url, token });
-          } else { localStorage.removeItem('ybtj_auth_token'); }
-        } catch(e) { localStorage.removeItem('ybtj_auth_token'); }
+            const data = await res.json();
+            setUserProfile(data.user);
+            setAuthUser({ name: data.user.display_name, email: data.user.email, avatar: data.user.avatar_url, token });
+          } else { localStorage.removeItem('ybtj_session_token'); setAuthToken(null); }
+        } catch(e) { localStorage.removeItem('ybtj_session_token'); setAuthToken(null); }
       }
     };
-    handleAuth();
+    restoreSession();
+  }, []);
+
+  // Load daily debate from API
+  useEffect(() => {
+    const loadDebate = async () => {
+      try {
+        const res = await fetch(`/api/debate?visitor_id=${visitorId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setDailyDebate(data);
+          if (data.myVote !== null && data.myVote !== undefined) setDebateVoted(data.myVote);
+        }
+      } catch(e) { /* fallback handled in render */ }
+    };
+    loadDebate();
   }, []);
 
   const signInWithGoogle = () => {
     const redirectTo = window.location.origin;
     window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
   };
-  const signOut = () => { localStorage.removeItem('ybtj_auth_token'); setAuthUser(null); };
 
-  // URL-based routing for /privacy, /terms, and /join/:code
+  const signOut = async () => {
+    if (authToken) {
+      try { await fetch('/api/auth?action=logout', { method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` } }); } catch(e) {}
+    }
+    localStorage.removeItem('ybtj_session_token');
+    setAuthToken(null); setUserProfile(null); setAuthUser(null);
+  };
+
+  const sendOtp = async (phone) => {
+    setLoginLoading(true); setLoginError("");
+    try {
+      const res = await fetch('/api/auth?action=send_otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }) });
+      const data = await res.json();
+      if (data.error) { setLoginError(data.error); } else { setLoginStep("otp"); }
+    } catch(e) { setLoginError("Failed to send code. Try again."); }
+    setLoginLoading(false);
+  };
+
+  const verifyOtp = async (phone, code) => {
+    setLoginLoading(true); setLoginError("");
+    try {
+      const res = await fetch('/api/auth?action=verify_otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, code }) });
+      const data = await res.json();
+      if (data.error) { setLoginError(data.error); }
+      else if (data.token) {
+        localStorage.setItem('ybtj_session_token', data.token);
+        setAuthToken(data.token);
+        setUserProfile(data.user);
+        setAuthUser({ name: data.user.display_name, email: data.user.email, avatar: data.user.avatar_url, token: data.token });
+        setLoginStep("done");
+        setScreen(SCREENS.HOME);
+      }
+    } catch(e) { setLoginError("Verification failed. Try again."); }
+    setLoginLoading(false);
+  };
+
+  const canUseVerdict = () => {
+    if (!userProfile) return true; // anonymous users get 3 free
+    if (userProfile.tier === 'pro') return true;
+    if (userProfile.party_expires_at && new Date(userProfile.party_expires_at) > new Date()) return true;
+    if ((userProfile.bonus_verdicts || 0) > 0) return true;
+    return (userProfile.verdicts_used || 0) < 3;
+  };
+
+  const useVerdict = async () => {
+    if (!authToken) return true; // anonymous
+    try {
+      const res = await fetch('/api/auth?action=use_verdict', { method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` } });
+      const data = await res.json();
+      if (data.error) return false;
+      if (data.user) setUserProfile(data.user);
+      return true;
+    } catch(e) { return true; }
+  };
+
+  const voteDebate = async (option) => {
+    if (debateVoted !== null) return;
+    setDebateLoading(true);
+    try {
+      const res = await fetch('/api/debate?action=vote', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ option, visitor_id: visitorId })
+      });
+      const data = await res.json();
+      if (data.voted || data.already_voted) {
+        setDebateVoted(data.myVote !== undefined ? data.myVote : option);
+        if (data.votes) setDailyDebate(prev => prev ? { ...prev, votes: data.votes, totalVotes: data.totalVotes } : prev);
+      }
+    } catch(e) {}
+    setDebateLoading(false);
+  };
+
+  // URL-based routing for /privacy, /terms, /join/:code, and purchase returns
   useEffect(() => {
+    // Handle Stripe purchase returns
+    const urlParams = new URLSearchParams(window.location.search);
+    const purchase = urlParams.get('purchase');
+    const status = urlParams.get('status');
+    const sessionId = urlParams.get('session_id');
+    if (purchase && status === 'success' && sessionId) {
+      // Fulfill the purchase
+      fetch('/api/stripe?action=fulfill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: sessionId }) })
+        .then(r => r.json())
+        .then(() => {
+          // Refresh user profile
+          const token = localStorage.getItem('ybtj_session_token');
+          if (token) {
+            fetch('/api/auth?action=me', { headers: { 'Authorization': `Bearer ${token}` } })
+              .then(r => r.json())
+              .then(d => { if (d.user) { setUserProfile(d.user); setAuthUser(prev => prev ? { ...prev, ...d.user } : prev); } });
+          }
+        }).catch(() => {});
+      // Clean URL
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
     const path = window.location.pathname;
     if (path === "/privacy") setScreen(SCREENS.PRIVACY);
     else if (path === "/terms") setScreen(SCREENS.TERMS);
@@ -391,12 +546,20 @@ export default function YouBeTheJudge() {
 
   const getVerdict = async () => {
     if (!personA.side||!personB.side) { alert("Both people need to share their side first!"); return; }
+    // Check verdict limit
+    if (!canUseVerdict()) { setScreen(SCREENS.PAYWALL); return; }
     setLoading(true); setScreen(SCREENS.VERDICT);
+    // Deduct verdict usage
+    await useVerdict();
     try {
-      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tier:"free",max_tokens:1200,messages:[{role:"user",content:buildPrompt()}]})});
+      const tier = userProfile?.tier === 'pro' ? 'premium' : 'free';
+      const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tier,max_tokens:1200,messages:[{role:"user",content:buildPrompt()}]})});
       const data = await res.json();
       const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
       setVerdict(parsed); setShowConfetti(true); setTimeout(()=>setShowConfetti(false),2000);
+      // Build verdict card URL
+      const cardParams = new URLSearchParams({ topic: topic||"General", winner: parsed.winner===(personA.name||"Person A")?"A":parsed.winner===(personB.name||"Person B")?"B":"Tie", personA: personA.name||"Person A", personB: personB.name||"Person B", scoreA: String(parsed.person_a_score||50), scoreB: String(parsed.person_b_score||50), headline: parsed.verdict_headline||"", mode:"story" });
+      setVerdictCardUrl(`/api/verdict-card?${cardParams.toString()}`);
       setHistory(h=>[{date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),topic:topic||"General argument",winner:parsed.winner,verdict:parsed.verdict_headline,category:topic||"General",scoreA:parsed.person_a_score||50,scoreB:parsed.person_b_score||50,caseName:""},...h]);
     } catch(e) { setVerdict({error:true,ruling:"Something went wrong. Please try again."}); }
     setLoading(false);
@@ -626,10 +789,11 @@ export default function YouBeTheJudge() {
   return (
     <div style={S.root}>
       <style>{css}</style>
-      {screen===SCREENS.HOME && <HomeScreen setScreen={setScreen} history={history} notifications={notifications} showNotifs={showNotifs} setShowNotifs={setShowNotifs} markNotifsRead={markNotifsRead} />}
+{screen===SCREENS.HOME && <HomeScreen setScreen={setScreen} history={history} notifications={notifications} showNotifs={showNotifs} setShowNotifs={setShowNotifs} markNotifsRead={markNotifsRead} authUser={authUser} userProfile={userProfile} dailyDebate={dailyDebate} debateVoted={debateVoted} onVoteDebate={voteDebate} debateLoading={debateLoading} />}
+{screen===SCREENS.HOME && <HomeScreen setScreen={setScreen} history={history} notifications={notifications} showNotifs={showNotifs} setShowNotifs={setShowNotifs} markNotifsRead={markNotifsRead} />}
       {screen===SCREENS.MODE_SELECT && <ModeSelectScreen topic={topic} personA={personA} personB={personB} onSamePhone={()=>{setRemoteMode(false);setScreen(SCREENS.RECORD_A);}} onRemote={async()=>{setRemoteMode(true);await generateRemoteCode();setScreen(SCREENS.REMOTE_SEND);}} onBack={()=>setScreen(SCREENS.SETUP)} />}
       {screen===SCREENS.SETUP && <SetupScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} topic={topic} setTopic={setTopic} usePersonality={usePersonality} setUsePersonality={setUsePersonality} personalityDepth={personalityDepth} setPersonalityDepth={setPersonalityDepth} judgeMode={judgeMode} setJudgeMode={setJudgeMode} setScreen={setScreen} />}
-      {screen===SCREENS.REMOTE_SEND && <RemoteSendScreen code={remoteCode} personA={personA} personB={personB} topic={topic} onBack={()=>setScreen(SCREENS.SETUP)} onRecordMySide={()=>setScreen(SCREENS.RECORD_A)} />}
+      {screen===SCREENS.REMOTE_SEND && <RemoteSendScreen code={remoteCode} personA={personA} personB={personB} topic={topic} onBack={()=>setScreen(SCREENS.SETUP)} onRecordMySide={()=>setScreen(SCREENS.RECORD_A)} setPersonB={setPersonB} />}
       {screen===SCREENS.REMOTE_WAITING && <RemoteWaitingScreen code={remoteCode} personA={personA} personB={personB} topic={topic} remoteStatus={remoteStatus} onSimulateB={()=>{ setRemoteStatus("submitted"); setTimeout(()=>{setRemoteBSide("Look, I've been very clear about my feelings here. I told them exactly how this made me feel and instead of engaging with what I said, they deflected and made it about something else entirely. The pattern is consistent — I raise an issue, they change the subject. I need them to actually hear me, not just wait for their turn to talk."); setRemoteStatus("ready");},1500); }} onReveal={()=>handleRemoteGetVerdict(remoteBSide, remoteBClarifyQs, remoteBClarifyAns)} />}
       {screen===SCREENS.REMOTE_B_LANDING && <RemoteBLandingScreen code={remoteCode} topic={topic} personBName={personB.name} onStart={()=>setScreen(SCREENS.REMOTE_B_RECORD)} />}
       {screen===SCREENS.REMOTE_B_RECORD && <RemoteBRecordScreen person={personB} setPerson={setPersonB} recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={(side)=>{ getClarifyQuestions(side, personA.side, (qs)=>{ if(qs.length>0){setRemoteBClarifyQs(qs);setRemoteBClarifyAns(new Array(qs.length).fill(""));setScreen(SCREENS.REMOTE_B_CLARIFY);}else{setRemoteBSide(side);submitPersonBToRedis(side);setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}});}} topic={topic} />}
@@ -649,11 +813,16 @@ export default function YouBeTheJudge() {
       {screen===SCREENS.RECORD_B && <RecordScreen person={personB} setPerson={setPersonB} name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={handleAfterRecordB} nextLoading={clarifyLoading} onBack={()=>clarifyQsA.length>0?setScreen(SCREENS.CLARIFY_A):setScreen(SCREENS.RECORD_A)} isFinal={true} otherPerson={personA} topic={topic} />}
       {screen===SCREENS.CLARIFY_B && <ClarifyScreen name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" questions={clarifyQsB} answers={clarifyAnsB} setAnswers={setClarifyAnsB} onNext={()=>getVerdict()} onBack={()=>setScreen(SCREENS.RECORD_B)} isFinal />}
       {screen===SCREENS.PERSONALITY && <PersonalityScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} depth={personalityDepth} onNext={getVerdict} onBack={()=>clarifyQsB.length>0?setScreen(SCREENS.CLARIFY_B):setScreen(SCREENS.RECORD_B)} />}
-      {screen===SCREENS.VERDICT && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={personB} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={reset} onSubmitCourt={submitToCourt} setScreen={setScreen} caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} topic={topic} />}
-      {screen===SCREENS.REMOTE_REVEAL && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={{...personB,side:remoteBSide}} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={resetFull} onSubmitCourt={submitToCourt} setScreen={setScreen} isRemote caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} topic={topic} />}
+      {screen===SCREENS.VERDICT && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={personB} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={reset} onSubmitCourt={submitToCourt} setScreen={setScreen} caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} verdictCardUrl={verdictCardUrl} topic={topic} />}
+      {screen===SCREENS.REMOTE_REVEAL && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={{...personB,side:remoteBSide}} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={resetFull} onSubmitCourt={submitToCourt} setScreen={setScreen} isRemote caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} verdictCardUrl={verdictCardUrl} topic={topic} />}
       {screen===SCREENS.HISTORY && <HistoryScreen history={history} onBack={()=>setScreen(SCREENS.HOME)} />}
       {screen===SCREENS.COURT && <CourtScreen cases={courtCases} loading={courtLoading} onVote={voteOnCase} onSelect={c=>{if(!canViewCommunity()){setCommunityPaywall(true);return;} incrementCommunityViews();setSelectedCase(c);loadCaseDetail(c.id);setScreen(SCREENS.CASE_DETAIL);}} onBack={()=>setScreen(SCREENS.HOME)} authUser={authUser} onSignIn={signInWithGoogle} onSignOut={signOut} showPaywall={communityPaywall} onDismissPaywall={()=>setCommunityPaywall(false)} freeViewsLeft={COMMUNITY_FREE_LIMIT - getCommunityViews()} />}
       {screen===SCREENS.CASE_DETAIL && currentCourtCase && <CaseDetailScreen c={currentCourtCase} onVote={side=>voteOnCase(currentCourtCase.id,side)} onComment={(text,tag)=>addComment(currentCourtCase.id,text,tag)} onReply={(commentId,text)=>addReply(currentCourtCase.id,commentId,text)} onLike={(commentId)=>toggleLike(currentCourtCase.id,commentId)} onReport={(commentId)=>reportComment(commentId)} reportedComments={reportedComments} onGetAIPicks={()=>getAISmartestComment(currentCourtCase.id,currentCourtCase.comments)} onBack={()=>setScreen(SCREENS.COURT)} judgeMode={judgeMode} authUser={authUser} onSignIn={signInWithGoogle} />}
+      {screen===SCREENS.LOGIN && <LoginScreen loginPhone={loginPhone} setLoginPhone={setLoginPhone} loginStep={loginStep} loginOtp={loginOtp} setLoginOtp={setLoginOtp} loginLoading={loginLoading} loginError={loginError} onSendOtp={()=>sendOtp(loginPhone)} onVerifyOtp={()=>verifyOtp(loginPhone,loginOtp)} onGoogleSignIn={signInWithGoogle} onBack={()=>{setLoginStep("phone");setLoginError("");setScreen(SCREENS.HOME);}} />}
+      {screen===SCREENS.PROFILE && <ProfileScreen user={userProfile} authUser={authUser} onSignOut={signOut} onBack={()=>setScreen(SCREENS.HOME)} onUpdateName={async(name)=>{ try{ const res=await fetch('/api/auth?action=update_profile',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${authToken}`},body:JSON.stringify({display_name:name})}); const d=await res.json(); if(d.user){setUserProfile(d.user);setAuthUser(prev=>({...prev,name:d.user.display_name}));}}catch(e){} }} />}
+      {screen===SCREENS.PAYWALL && <PaywallScreen user={userProfile} onBuy={async(product)=>{ try{ const res=await fetch(`/api/stripe?action=checkout`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({product,user_id:userProfile?.id})}); const d=await res.json(); if(d.url) window.location.href=d.url; }catch(e){alert("Payment failed. Try again.");} }} onBack={()=>setScreen(SCREENS.HOME)} />}
+      {screen===SCREENS.GROUP_SETUP && <GroupSetupScreen participants={groupParticipants} setParticipants={setGroupParticipants} topic={topic} setTopic={setTopic} personA={personA} setPersonA={setPersonA} onStart={async()=>{ try{ const res=await fetch('/api/case?action=create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({personAName:personA.name,topic,isGroup:true,participants:groupParticipants.filter(p=>p.name),phoneNumber:''})}); const d=await res.json(); if(d.code){setGroupCode(d.code);setGroupCaseData(d.case);setScreen(SCREENS.GROUP_WAITING);}}catch(e){alert("Failed to create group case.");} }} onBack={()=>setScreen(SCREENS.SETUP)} />}
+      {screen===SCREENS.GROUP_WAITING && <GroupWaitingScreen code={groupCode} caseData={groupCaseData} onRefresh={async()=>{ try{ const res=await fetch(`/api/case?code=${groupCode}`); if(res.ok){const d=await res.json();setGroupCaseData(d);}}catch(e){} }} onNudge={async()=>{ try{await fetch(`/api/case?code=${groupCode}&action=nudge`,{method:'POST'});}catch(e){} }} onBack={()=>setScreen(SCREENS.HOME)} />}
       {screen===SCREENS.PRIVACY && <PrivacyScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
       {screen===SCREENS.TERMS && <TermsScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
       {/* Join error banner */}
@@ -667,12 +836,16 @@ export default function YouBeTheJudge() {
 }
 
 // ── HOME ───────────────────────────────────────────────────────
-function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNotifs, markNotifsRead }) {
-  const [voted, setVoted] = useState({});
-  const debate = DAILY_DEBATES[0];
-  const vote = (id,side) => { if(voted[id]!==undefined) return; setVoted(v=>({...v,[id]:side})); };
+function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNotifs, markNotifsRead, authUser, userProfile, dailyDebate, debateVoted, onVoteDebate, debateLoading }) {
   const unread = notifications.filter(n=>!n.read).length;
   const notifIcon = { votes:"🗳️", comment:"💬", top_comment:"🏆" };
+  const debate = dailyDebate || DAILY_DEBATES_FALLBACK[0];
+  const debateOptions = debate.options || debate.labels || ["Option A", "Option B"];
+  const totalVotes = debate.totalVotes || (debate.votes?.[0]||0)+(debate.votes?.[1]||0) || 0;
+  const pct0 = totalVotes > 0 ? Math.round(((debate.votes?.[0]||0)/totalVotes)*100) : 50;
+  const pct1 = totalVotes > 0 ? Math.round(((debate.votes?.[1]||0)/totalVotes)*100) : 50;
+  const hasDebateVote = debateVoted !== null && debateVoted !== undefined;
+  const verdictInfo = userProfile ? `${3 - (userProfile.verdicts_used||0)} of 3 free verdicts left` : "3 free verdicts per month";
 
   const formatTime = (ts) => {
     const mins = Math.floor((Date.now()-ts)/60000);
@@ -713,17 +886,41 @@ function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNoti
           <h1 style={{fontSize:36, fontWeight:800, letterSpacing:-1.5, margin:"0 0 2px", background:`linear-gradient(135deg, ${C.rose}, ${C.peach})`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent"}}>You Be The Judge ⚖️</h1>
           <p style={{fontSize:13, color:C.textMid, margin:0}}>Finally, a judge who doesn't take sides.</p>
         </div>
-        <button style={{position:"relative", background:unread>0?C.roseLight:C.surfaceWarm, border:`1.5px solid ${unread>0?"#F5C0C8":C.border}`, borderRadius:14, padding:"10px 12px", fontSize:20, cursor:"pointer", lineHeight:1}} className="pop" onClick={()=>setShowNotifs(true)}>
-          🔔
-          {unread > 0 && <span style={{position:"absolute", top:-4, right:-4, background:C.rose, color:"#fff", borderRadius:"50%", width:18, height:18, fontSize:10, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center"}}>{unread}</span>}
-        </button>
+        <div style={{display:"flex", gap:6, alignItems:"center"}}>
+          {authUser ? (
+            <button style={{background:C.surfaceWarm, border:`1.5px solid ${C.border}`, borderRadius:14, padding:"8px 12px", fontSize:12, cursor:"pointer", fontFamily:"inherit", fontWeight:600, color:C.text, display:"flex", alignItems:"center", gap:6}} className="pop" onClick={()=>setScreen(SCREENS.PROFILE)}>
+              {authUser.avatar ? <img src={authUser.avatar} style={{width:20,height:20,borderRadius:"50%"}} alt="" /> : <span>👤</span>}
+              {authUser.name?.split(' ')[0] || 'Profile'}
+            </button>
+          ) : (
+            <button style={{background:C.surfaceWarm, border:`1.5px solid ${C.border}`, borderRadius:14, padding:"8px 12px", fontSize:12, cursor:"pointer", fontFamily:"inherit", color:C.textMid}} className="pop" onClick={()=>setScreen(SCREENS.LOGIN)}>Sign in</button>
+          )}
+          <button style={{position:"relative", background:unread>0?C.roseLight:C.surfaceWarm, border:`1.5px solid ${unread>0?"#F5C0C8":C.border}`, borderRadius:14, padding:"10px 12px", fontSize:20, cursor:"pointer", lineHeight:1}} className="pop" onClick={()=>setShowNotifs(true)}>
+            🔔
+            {unread > 0 && <span style={{position:"absolute", top:-4, right:-4, background:C.rose, color:"#fff", borderRadius:"50%", width:18, height:18, fontSize:10, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center"}}>{unread}</span>}
+          </button>
+        </div>
       </div>
+
+      {/* Verdict usage indicator */}
+      {userProfile && userProfile.tier !== 'pro' && (
+        <div style={{background:C.goldLight, border:`1px solid ${C.gold}30`, borderRadius:12, padding:"8px 14px", display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+          <span style={{fontSize:11, color:C.textMid}}>{verdictInfo}</span>
+          <button style={{fontSize:11, fontWeight:700, color:C.gold, background:"none", border:"none", cursor:"pointer", fontFamily:"inherit"}} onClick={()=>setScreen(SCREENS.PAYWALL)}>Go Pro →</button>
+        </div>
+      )}
+      {userProfile?.tier === 'pro' && (
+        <div style={{background:C.tealLight, border:`1px solid ${C.teal}30`, borderRadius:12, padding:"8px 14px", textAlign:"center"}}>
+          <span style={{fontSize:11, color:C.teal, fontWeight:700}}>Pro Member — Unlimited verdicts</span>
+        </div>
+      )}
 
       <button style={S.btnPrimary} className="pop" onClick={()=>setScreen("setup")}>⚖️ Settle an Argument</button>
       <div style={S.btnRow}>
         <button style={{...S.btnGhost,flex:1}} className="pop" onClick={()=>setScreen("history")}>📋 My Cases</button>
         <button style={{...S.btnGhost,flex:1}} className="pop" onClick={()=>setScreen("court")}>👥 Community</button>
       </div>
+      <button style={{...S.btnGhost, width:"100%", background:C.lavLight, borderColor:`${C.lavender}40`, color:C.lavender}} className="pop" onClick={()=>setScreen(SCREENS.GROUP_SETUP)}>👥 Group Verdict (3-6 people)</button>
 
       <div style={{...S.card, background:`linear-gradient(135deg,#FFF8F6,#FFF4FF)`}}>
         <p style={{...S.label, color:C.rose}}>How it works ✨</p>
@@ -735,40 +932,29 @@ function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNoti
         ))}
       </div>
 
-      {/* Pro Judge upsell */}
-      <div style={{...S.card, background:`linear-gradient(135deg, ${C.lavLight}, #FFF8E8)`, borderColor:`${C.lavender}30`, cursor:"pointer"}} className="pop" onClick={async()=>{try{const r=await fetch('/api/stripe?action=checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visitor_id:localStorage.getItem('ybtj_visitor_id')})});const d=await r.json();if(d.url){window.location.href=d.url;}else{alert('Unable to start checkout. Please try again.');console.error('Stripe response:',d);}}catch(e){alert('Something went wrong. Please try again.');console.error('Stripe error:',e);}}}>
-        <div style={{display:"flex", gap:12, alignItems:"center"}}>
-          <div style={{fontSize:28, flexShrink:0}}>👨‍⚖️</div>
-          <div style={{flex:1}}>
-            <div style={{display:"flex", alignItems:"center", gap:6, marginBottom:3}}>
-              <span style={{fontSize:14, fontWeight:800, color:C.lavender}}>Pro</span>
-              <span style={{background:C.gold, color:"#fff", borderRadius:6, padding:"1px 7px", fontSize:9, fontWeight:700}}>$4.99/mo</span>
-            </div>
-            <p style={{fontSize:11, color:C.textMid, margin:0, lineHeight:1.5}}>Unlimited verdicts, personality analysis, custom judge personas, and ad-free Community.</p>
-          </div>
-          <span style={{color:C.lavender, fontSize:16}}>→</span>
-        </div>
-      </div>
-
+      {/* Daily Debate — API driven */}
       <div style={{...S.card, borderColor:"#F5C0C8"}}>
         <p style={{...S.label, color:C.rose}}>🔥 Daily Debate — Who's Right?</p>
         <p style={{fontSize:14, fontWeight:700, color:C.text, marginBottom:12, lineHeight:1.4}}>{debate.topic}</p>
-        {voted[debate.id]===undefined ? (
+        {!hasDebateVote ? (
           <div style={S.twoCol}>
-            {debate.labels.map((lbl,i)=><button key={i} style={{...S.btnGhost, padding:"10px 8px", fontSize:11, lineHeight:1.4, textAlign:"center"}} className="pop" onClick={()=>vote(debate.id,i)}>{lbl}</button>)}
+            {debateOptions.map((lbl,i)=><button key={i} style={{...S.btnGhost, padding:"10px 8px", fontSize:11, lineHeight:1.4, textAlign:"center", opacity:debateLoading?0.5:1}} className="pop" onClick={()=>onVoteDebate(i)} disabled={debateLoading}>{lbl}</button>)}
           </div>
         ) : (
           <div style={{display:"flex", flexDirection:"column", gap:7}}>
-            {debate.labels.map((lbl,i)=>(
-              <div key={i}>
-                <div style={{display:"flex", justifyContent:"space-between", marginBottom:4}}>
-                  <span style={{fontSize:11, fontWeight:voted[debate.id]===i?700:400, color:voted[debate.id]===i?C.text:C.textLight}}>{lbl} {voted[debate.id]===i?"← you":""}</span>
-                  <span style={{fontSize:11, fontWeight:700, color:C.rose}}>{debate.votes[i]}%</span>
+            {debateOptions.map((lbl,i)=>{
+              const pct = i===0 ? pct0 : pct1;
+              return (
+                <div key={i}>
+                  <div style={{display:"flex", justifyContent:"space-between", marginBottom:4}}>
+                    <span style={{fontSize:11, fontWeight:debateVoted===i?700:400, color:debateVoted===i?C.text:C.textLight}}>{lbl} {debateVoted===i?"← you":""}</span>
+                    <span style={{fontSize:11, fontWeight:700, color:C.rose}}>{pct}%</span>
+                  </div>
+                  <div style={S.barTrack}><div style={{...S.barFill, width:`${pct}%`, background:debateVoted===i?C.rose:C.borderMid}} className="bar-fill" /></div>
                 </div>
-                <div style={S.barTrack}><div style={{...S.barFill, width:`${debate.votes[i]}%`, background:voted[debate.id]===i?C.rose:C.borderMid}} className="bar-fill" /></div>
-              </div>
-            ))}
-            <p style={{fontSize:11, color:C.textLight, marginTop:4}}>⚖️ AI says: <strong style={{color:C.text}}>{debate.votes[0]>debate.votes[1]?debate.labels[0]:debate.labels[1]}</strong> wins</p>
+              );
+            })}
+            <p style={{fontSize:11, color:C.textLight, marginTop:4}}>🗳️ {totalVotes.toLocaleString()} votes so far</p>
           </div>
         )}
       </div>
@@ -868,8 +1054,10 @@ function ModeSelectScreen({ topic, personA, personB, onSamePhone, onRemote, onBa
 }
 
 // ── REMOTE SEND SCREEN (Person A sent, waiting for B) ──────────
-function RemoteSendScreen({ code, personA, personB, topic, onBack, onRecordMySide }) {
+function RemoteSendScreen({ code, personA, personB, topic, onBack, onRecordMySide, setPersonB }) {
   const [copied, setCopied] = useState(false);
+  const [phoneB, setPhoneB] = useState("");
+  const [smsSent, setSmsSent] = useState(false);
   const link = `youbethejudge.ai/join/${code}`;
 
   const copyLink = () => {
@@ -903,6 +1091,18 @@ function RemoteSendScreen({ code, personA, personB, topic, onBack, onRecordMySid
           <p style={{fontSize:12, fontWeight:700, color:C.text, marginBottom:4}}>⚖️ {personA.name||"Person A"} has asked you to settle an argument</p>
           <p style={{fontSize:12, color:C.textMid, marginBottom:8}}><strong>Topic:</strong> {topic||"General dispute"}</p>
           <p style={{fontSize:11, color:C.textLight}}>Your side will be kept private until both submissions are in. The verdict reveals simultaneously.</p>
+        </div>
+      </div>
+
+      {/* SMS invite option */}
+      <div style={S.card}>
+        <label style={S.label}>📲 Text them the link (optional)</label>
+        <p style={{fontSize:11, color:C.textMid, marginBottom:8}}>We'll send them an SMS invite with the case link. They'll also get a nudge when you submit your side.</p>
+        <div style={{display:"flex", gap:8}}>
+          <input style={{...S.input, flex:1, marginBottom:0}} type="tel" placeholder="+1 (555) 123-4567" value={phoneB} onChange={e=>setPhoneB(e.target.value)} />
+          <button style={{...S.btnSoft, opacity:(!phoneB||smsSent)?0.5:1, whiteSpace:"nowrap"}} className="pop" disabled={!phoneB||smsSent} onClick={()=>{setSmsSent(true);}}>
+            {smsSent ? "Sent!" : "Send"}
+          </button>
         </div>
       </div>
 
@@ -1231,7 +1431,7 @@ function PersonalityScreen({ personA, setPersonA, personB, setPersonB, depth, on
 }
 
 // ── VERDICT ────────────────────────────────────────────────────
-function VerdictScreen({ verdict, loading, personA, personB, judgeMode, showConfetti, showShare, setShowShare, onReset, onSubmitCourt, setScreen, isRemote, caseName, setCaseName, onNameCase, topic }) {
+function VerdictScreen({ verdict, loading, personA, personB, judgeMode, showConfetti, showShare, setShowShare, onReset, onSubmitCourt, setScreen, isRemote, caseName, setCaseName, onNameCase, verdictCardUrl, topic }) {
   const [submitModal, setSubmitModal] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [nameSaved, setNameSaved] = useState(false);
@@ -1340,17 +1540,45 @@ function VerdictScreen({ verdict, loading, personA, personB, judgeMode, showConf
 
       {submitModal && <SubmitToCourtModal verdict={verdict} personA={personA} personB={personB} onSubmit={(cat,dA,dB)=>{onSubmitCourt(verdict,cat,dA,dB);setSubmitModal(false);setScreen("court");}} onClose={()=>setSubmitModal(false)} />}
       {showShare===true&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(26,20,18,0.5)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999,padding:20}}>
-          <div style={{...S.card, width:"100%", maxWidth:360, textAlign:"center"}}>
+        <div style={{position:"fixed",inset:0,background:"rgba(26,20,18,0.5)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999,padding:20,overflowY:"auto"}}>
+          <div style={{...S.card, width:"100%", maxWidth:380, textAlign:"center"}}>
             <h3 style={{...S.title, fontSize:18, marginBottom:12}}>Share this verdict 📤</h3>
-            <div style={{background:`linear-gradient(135deg,${wBg},#fff)`, border:`1.5px solid ${wColor}40`, borderRadius:16, padding:20, margin:"0 0 16px"}}>
-              <div style={{fontSize:28, marginBottom:6}}>⚖️</div>
-              <div style={{color:wColor, fontWeight:800, fontSize:16, marginBottom:4}}>{isTie?"It's a tie!":`${verdict.winner} wins`}</div>
-              <div style={{color:C.textMid, fontSize:12}}>"{verdict.verdict_headline}"</div>
-              {verdict.key_deciding_factor&&<div style={{color:C.textLight, fontSize:10, marginTop:6}}>⚡ {verdict.key_deciding_factor}</div>}
-            </div>
+            {/* Verdict card preview */}
+            {verdictCardUrl && (
+              <div style={{marginBottom:16, borderRadius:16, overflow:"hidden", border:`1.5px solid ${C.border}`}}>
+                <img src={verdictCardUrl} alt="Verdict Card" style={{width:"100%", display:"block"}} />
+              </div>
+            )}
+            {!verdictCardUrl && (
+              <div style={{background:`linear-gradient(135deg,${wBg},#fff)`, border:`1.5px solid ${wColor}40`, borderRadius:16, padding:20, margin:"0 0 16px"}}>
+                <div style={{fontSize:28, marginBottom:6}}>⚖️</div>
+                <div style={{color:wColor, fontWeight:800, fontSize:16, marginBottom:4}}>{isTie?"It's a tie!":`${verdict.winner} wins`}</div>
+                <div style={{color:C.textMid, fontSize:12}}>"{verdict.verdict_headline}"</div>
+                {verdict.key_deciding_factor&&<div style={{color:C.textLight, fontSize:10, marginTop:6}}>⚡ {verdict.key_deciding_factor}</div>}
+              </div>
+            )}
             <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:12}}>
-              {["📋 Copy","📱 Instagram","🐦 Twitter","💬 iMessage"].map(s=><button key={s} style={{...S.btnGhost, padding:"10px", fontSize:11}} onClick={()=>setShowShare(false)}>{s}</button>)}
+              <button style={{...S.btnGhost, padding:"10px", fontSize:11}} className="pop" onClick={()=>{
+                const shareText = `${isTie?"It's a tie!":verdict.winner+" wins!"} "${verdict.verdict_headline}" — youbethejudge.ai`;
+                navigator.clipboard?.writeText(shareText).catch(()=>{});
+                setShowShare(false);
+              }}>📋 Copy Text</button>
+              <button style={{...S.btnGhost, padding:"10px", fontSize:11}} className="pop" onClick={()=>{
+                if (verdictCardUrl && navigator.share) {
+                  fetch(verdictCardUrl).then(r=>r.blob()).then(blob=>{
+                    const file = new File([blob], 'verdict.svg', {type:'image/svg+xml'});
+                    navigator.share({files:[file], text:`${verdict.winner} wins! "${verdict.verdict_headline}" — youbethejudge.ai`}).catch(()=>{});
+                  }).catch(()=>{});
+                }
+                setShowShare(false);
+              }}>📱 Share</button>
+              {verdictCardUrl && <button style={{...S.btnGhost, padding:"10px", fontSize:11, gridColumn:"span 2"}} className="pop" onClick={()=>{
+                const a = document.createElement('a');
+                a.href = verdictCardUrl;
+                a.download = 'verdict-card.svg';
+                a.click();
+                setShowShare(false);
+              }}>⬇️ Download Card</button>}
             </div>
             <button style={S.btnGhost} onClick={()=>setShowShare(false)}>Close</button>
           </div>
@@ -2161,6 +2389,273 @@ function HistoryScreen({ history, onBack }) {
             </div>
           ))}
           <div style={{...S.card, background:C.surfaceWarm, textAlign:"center"}}><div style={{fontSize:32, marginBottom:8}}>📬</div><p style={{fontSize:13, fontWeight:700, color:C.text, marginBottom:4}}>Weekly report coming soon</p><p style={{fontSize:11, color:C.textLight, lineHeight:1.5}}>Every Sunday: argument patterns, win streaks, and one AI insight about your communication style.</p></div>
+        </div>
+      )}
+
+      <button style={S.btnGhost} className="pop" onClick={onBack}>← Back home</button>
+    </div>
+  );
+}
+
+// ── LOGIN SCREEN ──────────────────────────────────────────────
+function LoginScreen({ loginPhone, setLoginPhone, loginStep, loginOtp, setLoginOtp, loginLoading, loginError, onSendOtp, onVerifyOtp, onGoogleSignIn, onBack }) {
+  return (
+    <div style={S.screen} className="fade-in">
+      <div style={{textAlign:"center", paddingTop:24}}>
+        <div style={{fontSize:52, marginBottom:8}}>⚖️</div>
+        <h2 style={S.title}>Sign in to YouBeTheJudge</h2>
+        <p style={S.sub}>Track your verdicts, save history, unlock features</p>
+      </div>
+
+      {loginStep === "phone" && (
+        <>
+          <div style={S.card}>
+            <label style={S.label}>Phone number</label>
+            <input style={S.input} type="tel" placeholder="+1 (555) 123-4567" value={loginPhone} onChange={e=>setLoginPhone(e.target.value)} />
+            <p style={{fontSize:11, color:C.textLight, margin:"4px 0 0"}}>We'll text you a 6-digit code</p>
+          </div>
+          {loginError && <p style={{fontSize:12, color:C.rose, textAlign:"center"}}>{loginError}</p>}
+          <button style={{...S.btnPrimary, opacity:(!loginPhone||loginLoading)?0.5:1}} className="pop" onClick={onSendOtp} disabled={!loginPhone||loginLoading}>
+            {loginLoading ? "Sending..." : "Send Code →"}
+          </button>
+
+          <div style={{display:"flex", alignItems:"center", gap:12, padding:"8px 0"}}>
+            <div style={{flex:1, height:1, background:C.border}} />
+            <span style={{fontSize:11, color:C.textLight}}>or</span>
+            <div style={{flex:1, height:1, background:C.border}} />
+          </div>
+
+          <button onClick={onGoogleSignIn} className="pop" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,width:"100%",padding:"14px 20px",background:C.surface,border:`1.5px solid ${C.borderMid}`,borderRadius:14,cursor:"pointer",fontSize:14,fontWeight:600,color:C.text,fontFamily:"inherit"}}>
+            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 010-9.18l-7.98-6.19a24.003 24.003 0 000 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+            Continue with Google
+          </button>
+        </>
+      )}
+
+      {loginStep === "otp" && (
+        <>
+          <div style={S.card}>
+            <label style={S.label}>Enter the 6-digit code</label>
+            <p style={{fontSize:12, color:C.textMid, marginBottom:10}}>Sent to {loginPhone}</p>
+            <input style={{...S.input, fontSize:28, fontWeight:800, letterSpacing:8, textAlign:"center"}} type="text" maxLength={6} placeholder="000000" value={loginOtp} onChange={e=>setLoginOtp(e.target.value.replace(/\D/g,'').slice(0,6))} />
+          </div>
+          {loginError && <p style={{fontSize:12, color:C.rose, textAlign:"center"}}>{loginError}</p>}
+          <button style={{...S.btnPrimary, opacity:(loginOtp.length<6||loginLoading)?0.5:1}} className="pop" onClick={onVerifyOtp} disabled={loginOtp.length<6||loginLoading}>
+            {loginLoading ? "Verifying..." : "Verify →"}
+          </button>
+        </>
+      )}
+
+      <button style={S.btnGhost} className="pop" onClick={onBack}>← Back</button>
+    </div>
+  );
+}
+
+// ── PROFILE SCREEN ────────────────────────────────────────────
+function ProfileScreen({ user, authUser, onSignOut, onBack, onUpdateName }) {
+  const [editing, setEditing] = useState(false);
+  const [nameInput, setNameInput] = useState(user?.display_name || "");
+
+  if (!user) return (
+    <div style={S.screen} className="fade-in">
+      <div style={{textAlign:"center", paddingTop:40}}>
+        <p style={S.sub}>Loading profile...</p>
+      </div>
+      <button style={S.btnGhost} className="pop" onClick={onBack}>← Back</button>
+    </div>
+  );
+
+  const hasParty = user.party_expires_at && new Date(user.party_expires_at) > new Date();
+
+  return (
+    <div style={S.screen} className="fade-in">
+      <div style={{textAlign:"center", paddingTop:24}}>
+        {authUser?.avatar ? <img src={authUser.avatar} style={{width:64,height:64,borderRadius:"50%",margin:"0 auto 10px",display:"block"}} alt="" /> : <div style={{width:64,height:64,borderRadius:"50%",background:C.roseLight,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 10px",fontSize:28}}>👤</div>}
+        {editing ? (
+          <div style={{display:"flex", gap:8, justifyContent:"center", marginBottom:8}}>
+            <input style={{...S.input, width:200, marginBottom:0, textAlign:"center"}} value={nameInput} onChange={e=>setNameInput(e.target.value)} maxLength={30} />
+            <button style={{...S.btnSoft, padding:"8px 14px", fontSize:12}} onClick={()=>{onUpdateName(nameInput);setEditing(false);}}>Save</button>
+          </div>
+        ) : (
+          <h2 style={{...S.title, cursor:"pointer"}} onClick={()=>setEditing(true)}>{user.display_name || "User"} <span style={{fontSize:12, color:C.textLight}}>✏️</span></h2>
+        )}
+        <div style={{display:"inline-block", background:user.tier==='pro'?C.tealLight:C.surfaceWarm, color:user.tier==='pro'?C.teal:C.textMid, borderRadius:20, padding:"4px 14px", fontSize:11, fontWeight:700, border:`1px solid ${user.tier==='pro'?`${C.teal}40`:C.border}`}}>{user.tier==='pro'?'Pro':'Free'} {hasParty && "🎉 Party Active"}</div>
+        {user.email && <p style={{fontSize:12, color:C.textLight, marginTop:6}}>{user.email}</p>}
+        {user.phone && <p style={{fontSize:12, color:C.textLight, marginTop:2}}>{user.phone}</p>}
+      </div>
+
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10}}>
+        {[["🏆",user.wins||0,"Wins"],["📉",user.losses||0,"Losses"],["⚡",user.ties||0,"Ties"]].map(([icon,val,label])=>(
+          <div key={label} style={{...S.card, textAlign:"center", padding:14}}>
+            <div style={{fontSize:20, marginBottom:2}}>{icon}</div>
+            <div style={{fontSize:20, fontWeight:800, color:C.text}}>{val}</div>
+            <div style={{fontSize:10, color:C.textLight}}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {user.tier !== 'pro' && (
+        <div style={S.card}>
+          <label style={S.label}>Verdict usage this month</label>
+          <div style={{display:"flex", justifyContent:"space-between", marginBottom:6}}>
+            <span style={{fontSize:13, color:C.textMid}}>{user.verdicts_used || 0} of 3 used</span>
+            {(user.bonus_verdicts||0) > 0 && <span style={{fontSize:12, color:C.gold, fontWeight:700}}>+{user.bonus_verdicts} bonus</span>}
+          </div>
+          <div style={S.barTrack}><div style={{...S.barFill, width:`${Math.min(100,((user.verdicts_used||0)/3)*100)}%`, background:C.rose}} /></div>
+        </div>
+      )}
+
+      {user.stripe_customer_id && (
+        <button style={{...S.btnGhost, width:"100%"}} className="pop" onClick={async()=>{
+          try { const res = await fetch('/api/stripe?action=manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer_id:user.stripe_customer_id})}); const d=await res.json(); if(d.url) window.location.href=d.url; } catch(e) {}
+        }}>Manage Subscription</button>
+      )}
+
+      <button style={{...S.btnGhost, width:"100%", color:C.rose, borderColor:`${C.rose}40`}} className="pop" onClick={onSignOut}>Sign Out</button>
+      <button style={S.btnGhost} className="pop" onClick={onBack}>← Back home</button>
+    </div>
+  );
+}
+
+// ── PAYWALL SCREEN ────────────────────────────────────────────
+function PaywallScreen({ user, onBuy, onBack }) {
+  const products = [
+    { id:"verdict", name:"Single Verdict", price:"$0.99", desc:"One extra verdict, use anytime", icon:"⚖️", color:C.rose },
+    { id:"roast", name:"Roast Verdict", price:"$2.99", desc:"One verdict with savage roast mode", icon:"🔥", color:C.peach },
+    { id:"party", name:"Party Pack", price:"$4.99", desc:"Unlimited verdicts for 24 hours", icon:"🎉", color:C.lavender },
+    { id:"pro_annual", name:"Pro Annual", price:"$19.99/yr", desc:"Unlimited verdicts, premium AI, no ads", icon:"🏆", color:C.teal },
+  ];
+
+  return (
+    <div style={S.screen} className="fade-in">
+      <div style={{textAlign:"center", paddingTop:24}}>
+        <div style={{fontSize:52, marginBottom:8}}>⚖️</div>
+        <h2 style={S.title}>You've used your free verdicts</h2>
+        <p style={S.sub}>3 free verdicts per month. Unlock more below.</p>
+      </div>
+
+      <div style={{display:"flex", flexDirection:"column", gap:10}}>
+        {products.map(p=>(
+          <div key={p.id} style={{...S.card, border:`2px solid ${p.id==="pro_annual"?p.color:C.border}`, background:p.id==="pro_annual"?`${p.color}10`:C.surface, cursor:"pointer"}} className="pop" onClick={()=>onBuy(p.id)}>
+            <div style={{display:"flex", gap:14, alignItems:"center"}}>
+              <div style={{fontSize:32, flexShrink:0}}>{p.icon}</div>
+              <div style={{flex:1}}>
+                <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+                  <span style={{fontSize:15, fontWeight:800, color:C.text}}>{p.name}</span>
+                  <span style={{fontSize:14, fontWeight:800, color:p.color}}>{p.price}</span>
+                </div>
+                <p style={{fontSize:12, color:C.textMid, margin:"4px 0 0"}}>{p.desc}</p>
+                {p.id==="pro_annual" && <span style={{background:p.color, color:"#fff", borderRadius:8, padding:"2px 8px", fontSize:9, fontWeight:700, marginTop:6, display:"inline-block"}}>BEST VALUE</span>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button style={S.btnGhost} className="pop" onClick={onBack}>← Maybe later</button>
+    </div>
+  );
+}
+
+// ── GROUP SETUP SCREEN ────────────────────────────────────────
+function GroupSetupScreen({ participants, setParticipants, topic, setTopic, personA, setPersonA, onStart, onBack }) {
+  const addParticipant = () => { if (participants.length < 6) setParticipants([...participants, {name:"",phone:""}]); };
+  const removeParticipant = (i) => { if (participants.length > 3) setParticipants(participants.filter((_,idx)=>idx!==i)); };
+  const updateP = (i, field, val) => { const u = [...participants]; u[i] = {...u[i], [field]:val}; setParticipants(u); };
+  const validCount = participants.filter(p=>p.name.trim()).length;
+
+  return (
+    <div style={S.screen} className="fade-in">
+      <div style={{textAlign:"center", paddingTop:12}}>
+        <div style={{fontSize:44, marginBottom:8}}>👥</div>
+        <h2 style={S.title}>Group Verdict</h2>
+        <p style={S.sub}>3-6 people each submit their side. AI judges everyone.</p>
+      </div>
+
+      <div style={S.card}>
+        <label style={S.label}>What's the debate about?</label>
+        <input style={S.input} placeholder="e.g. Where should we eat tonight?" value={topic} onChange={e=>setTopic(e.target.value)} />
+      </div>
+
+      <div style={S.card}>
+        <label style={S.label}>Your name (you're organizing this)</label>
+        <input style={S.input} placeholder="Your name" value={personA.name} onChange={e=>setPersonA(p=>({...p,name:e.target.value}))} />
+      </div>
+
+      <div style={S.card}>
+        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10}}>
+          <label style={{...S.label, margin:0}}>Participants ({participants.length})</label>
+          {participants.length < 6 && <button style={{fontSize:11, color:C.teal, background:"none", border:"none", cursor:"pointer", fontWeight:700, fontFamily:"inherit"}} onClick={addParticipant}>+ Add person</button>}
+        </div>
+        {participants.map((p,i)=>(
+          <div key={i} style={{display:"flex", gap:8, alignItems:"center", marginBottom:8}}>
+            <span style={{fontSize:11, color:C.textLight, width:20, flexShrink:0, textAlign:"center"}}>{i+1}</span>
+            <input style={{...S.input, flex:1, marginBottom:0}} placeholder="Name" value={p.name} onChange={e=>updateP(i,"name",e.target.value)} />
+            <input style={{...S.input, flex:1, marginBottom:0}} placeholder="Phone (optional)" value={p.phone} onChange={e=>updateP(i,"phone",e.target.value)} />
+            {participants.length > 3 && <button style={{fontSize:16, color:C.textLight, background:"none", border:"none", cursor:"pointer", padding:4}} onClick={()=>removeParticipant(i)}>×</button>}
+          </div>
+        ))}
+      </div>
+
+      <div style={{...S.card, background:C.goldLight, borderColor:`${C.gold}40`}}>
+        <p style={{fontSize:11, color:C.textMid, lineHeight:1.6}}>💡 Each participant gets a link to submit their side privately. Nobody sees anyone else's argument until all sides are in. Then the AI drops a group verdict.</p>
+      </div>
+
+      <button style={{...S.btnPrimary, opacity:(validCount<3||!topic)?0.5:1}} className="pop" onClick={onStart} disabled={validCount<3||!topic}>
+        {validCount<3 ? `Need ${3-validCount} more people` : `Create Group Case (${validCount} people) →`}
+      </button>
+      <button style={S.btnGhost} className="pop" onClick={onBack}>← Back</button>
+    </div>
+  );
+}
+
+// ── GROUP WAITING SCREEN ──────────────────────────────────────
+function GroupWaitingScreen({ code, caseData, onRefresh, onNudge, onBack }) {
+  const [nudged, setNudged] = useState(false);
+
+  if (!caseData) return <div style={S.screen}><p style={S.sub}>Loading...</p></div>;
+
+  const submitted = (caseData.participants||[]).filter(p=>p.submitted).length;
+  const total = (caseData.participants||[]).length;
+  const allIn = caseData.status === "all_submitted";
+  const link = `youbethejudge.ai/join/${code}`;
+
+  return (
+    <div style={S.screen} className="fade-in">
+      <div style={{textAlign:"center", paddingTop:16}}>
+        <div style={{fontSize:44, marginBottom:8}}>{allIn ? "✅" : "⏳"}</div>
+        <h2 style={S.title}>{allIn ? "All sides are in!" : `Waiting for submissions`}</h2>
+        <p style={S.sub}>{submitted} of {total} people have submitted</p>
+      </div>
+
+      <div style={S.card}>
+        <label style={S.label}>Share this link</label>
+        <div style={{fontFamily:"monospace", fontSize:16, fontWeight:800, letterSpacing:4, color:C.blue, textAlign:"center", padding:"10px 0", marginBottom:8}}>{code}</div>
+        <button style={{...S.btnGhost, width:"100%", fontSize:12}} className="pop" onClick={()=>{navigator.clipboard?.writeText(link).catch(()=>{});}}>📋 Copy Link — {link}</button>
+      </div>
+
+      <div style={S.card}>
+        <label style={S.label}>Participant status</label>
+        {(caseData.participants||[]).map((p,i)=>(
+          <div key={i} style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", background:p.submitted?C.tealLight:C.surfaceWarm, borderRadius:10, marginBottom:6, border:`1px solid ${p.submitted?`${C.teal}40`:C.border}`}}>
+            <span style={{fontSize:13, fontWeight:600, color:C.text}}>{p.name}</span>
+            <span style={{fontSize:10, fontWeight:700, color:p.submitted?C.teal:C.gold, background:p.submitted?`${C.teal}20`:`${C.gold}20`, padding:"3px 8px", borderRadius:8}}>{p.submitted?"Submitted":"Waiting..."}</span>
+          </div>
+        ))}
+      </div>
+
+      {!allIn && (
+        <div style={S.btnRow}>
+          <button style={{...S.btnGhost, flex:1}} className="pop" onClick={onRefresh}>🔄 Refresh</button>
+          <button style={{...S.btnSoft, flex:1, opacity:nudged?0.5:1}} className="pop" onClick={()=>{onNudge();setNudged(true);}} disabled={nudged}>{nudged ? "Nudge sent!" : "📲 Nudge pending"}</button>
+        </div>
+      )}
+
+      {allIn && (
+        <div style={{...S.card, background:`linear-gradient(135deg, ${C.roseLight}, ${C.blueLight})`, textAlign:"center", padding:24}}>
+          <h3 style={{fontSize:17, fontWeight:800, color:C.text, marginBottom:8}}>Ready for the group verdict</h3>
+          <p style={{fontSize:12, color:C.textMid, marginBottom:14}}>All {total} sides are sealed and ready.</p>
+          <button style={S.btnPrimary} className="pop">⚖️ Drop the Group Verdict</button>
         </div>
       )}
 
