@@ -4,7 +4,7 @@
 // Uses Stripe API directly via fetch — no npm dependency
 
 const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY;
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
@@ -198,3 +198,4 @@ export default async function handler(req, res) {
     console.error("Stripe error:", e);
     return res.status(500).json({ error: e.message || "Internal error" });
   }
+}
