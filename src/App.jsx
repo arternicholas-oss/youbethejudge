@@ -166,7 +166,8 @@ const css = `
 
 // ── MAIN APP ───────────────────────────────────────────────────
 export default function YouBeTheJudge() {
-  const [screen, setScreen] = useState(SCREENS.HOME);
+  const [screen, setScreenRaw] = useState(SCREENS.HOME);
+  const screenStackRef = useRef([SCREENS.HOME]);
   const [personA, setPersonA] = useState({ name:"", side:"", zodiac:"", mbti:"", loveLanguage:"", attachment:"" });
   const [personB, setPersonB] = useState({ name:"", side:"", zodiac:"", mbti:"", loveLanguage:"", attachment:"" });
   const [topic, setTopic] = useState("");
@@ -437,13 +438,23 @@ export default function YouBeTheJudge() {
       }
     }
 
-    // Handle browser back/forward
-    const handlePop = () => {
-      const p = window.location.pathname;
-      if (p === "/privacy") setScreen(SCREENS.PRIVACY);
-      else if (p === "/terms") setScreen(SCREENS.TERMS);
-      else if (p === "/") setScreen(SCREENS.HOME);
+    // Handle browser back/forward — use screen stack instead of URL
+    const handlePop = (e) => {
+      const stack = screenStackRef.current;
+      if (stack.length > 1) {
+        stack.pop(); // remove current
+        const prev = stack[stack.length - 1];
+        setScreenRaw(prev);
+      } else {
+        // Already at home, let browser handle normally
+        const p = window.location.pathname;
+        if (p === "/privacy") setScreenRaw(SCREENS.PRIVACY);
+        else if (p === "/terms") setScreenRaw(SCREENS.TERMS);
+        else setScreenRaw(SCREENS.HOME);
+      }
     };
+    // Push initial history state so first back doesn't exit
+    window.history.replaceState({ screen: SCREENS.HOME }, "");
     window.addEventListener("popstate", handlePop);
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
@@ -493,12 +504,25 @@ export default function YouBeTheJudge() {
     } catch(e) { console.error('Load case detail failed:', e); }
   };
 
-  // Push browser history for SPA nav
+  // Wrap setScreen to push browser history for back-button support
+  const setScreen = (newScreen) => {
+    const stack = screenStackRef.current;
+    if (newScreen === stack[stack.length - 1]) return; // no-op if same screen
+    stack.push(newScreen);
+    window.history.pushState({ screen: newScreen }, "");
+    setScreenRaw(newScreen);
+  };
+
+  // Push browser history for SPA nav (with URL path)
   const navigateTo = (newScreen, path) => {
     if (path && window.location.pathname !== path) {
-      window.history.pushState(null, "", path);
+      window.history.pushState({ screen: newScreen }, "", path);
+    } else {
+      window.history.pushState({ screen: newScreen }, "");
     }
-    setScreen(newScreen);
+    const stack = screenStackRef.current;
+    stack.push(newScreen);
+    setScreenRaw(newScreen);
   };
 
   const pushNotification = (type, caseId, message) => {
@@ -737,7 +761,10 @@ export default function YouBeTheJudge() {
     setTopic(""); setVerdict(null); setCaseName("");
     setClarifyQsA([]); setClarifyQsB([]);
     setClarifyAnsA([]); setClarifyAnsB([]);
-    setScreen(SCREENS.HOME);
+    // Reset screen stack and go home without pushing extra history
+    screenStackRef.current = [SCREENS.HOME];
+    window.history.replaceState({ screen: SCREENS.HOME }, "", "/");
+    setScreenRaw(SCREENS.HOME);
   };
 
   const generateRemoteCode = async () => {
@@ -843,7 +870,6 @@ export default function YouBeTheJudge() {
     <div style={S.root}>
       <style>{css}</style>
 {screen===SCREENS.HOME && <HomeScreen setScreen={setScreen} history={history} notifications={notifications} showNotifs={showNotifs} setShowNotifs={setShowNotifs} markNotifsRead={markNotifsRead} authUser={authUser} userProfile={userProfile} dailyDebate={dailyDebate} debateVoted={debateVoted} onVoteDebate={voteDebate} debateLoading={debateLoading} />}
-{screen===SCREENS.HOME && <HomeScreen setScreen={setScreen} history={history} notifications={notifications} showNotifs={showNotifs} setShowNotifs={setShowNotifs} markNotifsRead={markNotifsRead} />}
       {screen===SCREENS.MODE_SELECT && <ModeSelectScreen topic={topic} personA={personA} personB={personB} onSamePhone={()=>{setRemoteMode(false);setScreen(SCREENS.RECORD_A);}} onRemote={async()=>{setRemoteMode(true);await generateRemoteCode();setScreen(SCREENS.REMOTE_SEND);}} onBack={()=>setScreen(SCREENS.SETUP)} />}
       {screen===SCREENS.SETUP && <SetupScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} topic={topic} setTopic={setTopic} usePersonality={usePersonality} setUsePersonality={setUsePersonality} personalityDepth={personalityDepth} setPersonalityDepth={setPersonalityDepth} judgeMode={judgeMode} setJudgeMode={setJudgeMode} setScreen={setScreen} />}
       {screen===SCREENS.REMOTE_SEND && <RemoteSendScreen code={remoteCode} personA={personA} personB={personB} topic={topic} onBack={()=>setScreen(SCREENS.SETUP)} onRecordMySide={()=>setScreen(SCREENS.RECORD_A)} setPersonB={setPersonB} />}
