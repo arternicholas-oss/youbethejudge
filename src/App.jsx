@@ -1,5 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 
+function claudeText(data){
+  if(!data || !Array.isArray(data.content)){
+    throw new Error((data && data.error) ? String(data.error) : "AI service unavailable");
+  }
+  return data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim();
+}
+
+
 // ── DESIGN TOKENS ──────────────────────────────────────────────
 const C = {
   bg:"#FDF8F5", surface:"#FFFFFF", surfaceWarm:"#FFF4EE", surfacePink:"#FFF0F3",
@@ -423,9 +431,15 @@ export default function YouBeTheJudge() {
             const data = await res.json();
             if (!data || !data.topic) { setJoinError(true); setScreen(SCREENS.HOME); return; }
             setTopic(data.topic || "");
+            setRemoteCode(code);
+            if (data.isGroup) {
+              setGroupCode(code);
+              setGroupCaseData(data);
+              setScreen(SCREENS.GROUP_SUBMIT);
+              return;
+            }
             setPersonA(p => ({ ...p, name: data.personAName || "" }));
             setPersonB(p => ({ ...p, name: data.personBName || "" }));
-            setRemoteCode(code);
             setRemoteMode(true);
             setScreen(SCREENS.REMOTE_B_LANDING);
           } catch (e) {
@@ -458,6 +472,29 @@ export default function YouBeTheJudge() {
     window.addEventListener("popstate", handlePop);
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
+
+  // Remote flow: while Person A waits, poll for Person B's real submission.
+  useEffect(() => {
+    if (screen !== SCREENS.REMOTE_WAITING || !remoteMode || remoteStatus !== "waiting" || !remoteCode) return;
+    let active = true;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/case?code=${remoteCode}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!active) return;
+        if (data.status === "both_submitted" && data.sideB) {
+          setRemoteBSide(data.sideB);
+          setRemoteBClarifyQs(data.clarifyQsB || []);
+          setRemoteBClarifyAns(data.clarifyAnsB || []);
+          setRemoteStatus("ready");
+        }
+      } catch (e) { /* keep polling */ }
+    };
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => { active = false; clearInterval(id); };
+  }, [screen, remoteMode, remoteStatus, remoteCode]);
 
   // Fetch court cases from Supabase when Court screen is shown
   useEffect(() => {
@@ -547,7 +584,7 @@ export default function YouBeTheJudge() {
     try {
       const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tier:"free",max_tokens:300,messages:[{role:"user",content:`You're a warm, curious mediator. Ask 1-2 short clarifying questions about this argument side. Be specific, friendly. Max 15 words each. Max 2 questions.\n\nTheir side: "${sideText}"\n${otherSideText?`Other side: "${otherSideText}"`:""}\n\nRespond ONLY with valid JSON: {"questions":["q1","q2"]}`}]})});
       const data = await res.json();
-      const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
+      const parsed = JSON.parse(claudeText(data));
       onDone(parsed.questions?.slice(0,2)||[]);
     } catch(e) { onDone([]); }
     setClarifyLoading(false);
@@ -594,7 +631,7 @@ export default function YouBeTheJudge() {
       const tier = userProfile?.tier === 'pro' ? 'premium' : 'free';
       const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tier,isGroup:true,max_tokens:1500,messages:[{role:"user",content:buildGroupPrompt(caseData)}]})});
       const data = await res.json();
-      const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
+      const parsed = JSON.parse(claudeText(data));
       // Map group verdict to standard verdict shape for VerdictScreen
       const rankings = parsed.rankings||[];
       const winnerRank = rankings.find(r=>r.name===parsed.winner);
@@ -632,7 +669,7 @@ export default function YouBeTheJudge() {
       const tier = userProfile?.tier === 'pro' ? 'premium' : 'free';
       const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tier,max_tokens:1200,messages:[{role:"user",content:buildPrompt()}]})});
       const data = await res.json();
-      const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
+      const parsed = JSON.parse(claudeText(data));
       setVerdict(parsed); setShowConfetti(true); setTimeout(()=>setShowConfetti(false),2000);
       // Build verdict card URL
       const cardParams = new URLSearchParams({ topic: topic||"General", winner: parsed.winner===(personA.name||"Person A")?"A":parsed.winner===(personB.name||"Person B")?"B":"Tie", personA: personA.name||"Person A", personB: personB.name||"Person B", scoreA: String(parsed.person_a_score||50), scoreB: String(parsed.person_b_score||50), headline: parsed.verdict_headline||"", mode:"story" });
@@ -750,7 +787,7 @@ export default function YouBeTheJudge() {
     try {
       const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tier:"free",max_tokens:200,messages:[{role:"user",content:`You are evaluating user comments on an argument case. Pick the single most insightful, logically sound comment. Return only the comment id.\n\nComments:\n${comments.map(c=>`ID: ${c.id}\nText: ${c.text}\nTag: ${c.tag}`).join("\n\n")}\n\nRespond ONLY with valid JSON: {"smartest_id":"<id>","funniest_id":"<id>"}`}]})});
       const data = await res.json();
-      const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
+      const parsed = JSON.parse(claudeText(data));
       setCourtCases(prev=>prev.map(c=>c.id===caseId?{...c,aiSmartestId:parsed.smartest_id,aiFunniestId:parsed.funniest_id}:c));
     } catch(e) {}
   };
@@ -836,7 +873,7 @@ export default function YouBeTheJudge() {
     try {
       const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:p}]})});
       const data = await res.json();
-      const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
+      const parsed = JSON.parse(claudeText(data));
       setVerdict(parsed); setShowConfetti(true); setTimeout(()=>setShowConfetti(false),2500);
       setHistory(h=>[{date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),topic:topic||"General argument",winner:parsed.winner,verdict:parsed.verdict_headline,category:topic||"General",scoreA:parsed.person_a_score||50,scoreB:parsed.person_b_score||50},...h]);
     } catch(e) { setVerdict({error:true,ruling:"Something went wrong. Please try again."}); }
@@ -873,7 +910,7 @@ export default function YouBeTheJudge() {
       {screen===SCREENS.MODE_SELECT && <ModeSelectScreen topic={topic} personA={personA} personB={personB} onSamePhone={()=>{setRemoteMode(false);setScreen(SCREENS.RECORD_A);}} onRemote={async()=>{setRemoteMode(true);await generateRemoteCode();setScreen(SCREENS.REMOTE_SEND);}} onBack={()=>setScreen(SCREENS.SETUP)} />}
       {screen===SCREENS.SETUP && <SetupScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} topic={topic} setTopic={setTopic} usePersonality={usePersonality} setUsePersonality={setUsePersonality} personalityDepth={personalityDepth} setPersonalityDepth={setPersonalityDepth} judgeMode={judgeMode} setJudgeMode={setJudgeMode} setScreen={setScreen} />}
       {screen===SCREENS.REMOTE_SEND && <RemoteSendScreen code={remoteCode} personA={personA} personB={personB} topic={topic} onBack={()=>setScreen(SCREENS.SETUP)} onRecordMySide={()=>setScreen(SCREENS.RECORD_A)} setPersonB={setPersonB} />}
-      {screen===SCREENS.REMOTE_WAITING && <RemoteWaitingScreen code={remoteCode} personA={personA} personB={personB} topic={topic} remoteStatus={remoteStatus} onSimulateB={()=>{ setRemoteStatus("submitted"); setTimeout(()=>{setRemoteBSide("Look, I've been very clear about my feelings here. I told them exactly how this made me feel and instead of engaging with what I said, they deflected and made it about something else entirely. The pattern is consistent — I raise an issue, they change the subject. I need them to actually hear me, not just wait for their turn to talk."); setRemoteStatus("ready");},1500); }} onReveal={()=>handleRemoteGetVerdict(remoteBSide, remoteBClarifyQs, remoteBClarifyAns)} />}
+      {screen===SCREENS.REMOTE_WAITING && <RemoteWaitingScreen code={remoteCode} personA={personA} personB={personB} topic={topic} remoteStatus={remoteStatus} onSimulateB={()=>{}} onReveal={()=>handleRemoteGetVerdict(remoteBSide, remoteBClarifyQs, remoteBClarifyAns)} />}
       {screen===SCREENS.REMOTE_B_LANDING && <RemoteBLandingScreen code={remoteCode} topic={topic} personBName={personB.name} onStart={()=>setScreen(SCREENS.REMOTE_B_RECORD)} />}
       {screen===SCREENS.REMOTE_B_RECORD && <RemoteBRecordScreen person={personB} setPerson={setPersonB} recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={(side)=>{ getClarifyQuestions(side, personA.side, (qs)=>{ if(qs.length>0){setRemoteBClarifyQs(qs);setRemoteBClarifyAns(new Array(qs.length).fill(""));setScreen(SCREENS.REMOTE_B_CLARIFY);}else{setRemoteBSide(side);submitPersonBToRedis(side);setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}});}} topic={topic} />}
       {screen===SCREENS.REMOTE_B_CLARIFY && <ClarifyScreen name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" questions={remoteBClarifyQs} answers={remoteBClarifyAns} setAnswers={setRemoteBClarifyAns} onNext={()=>{submitPersonBToRedis();setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}} onBack={()=>setScreen(SCREENS.REMOTE_B_RECORD)} isFinal />}
@@ -902,6 +939,7 @@ export default function YouBeTheJudge() {
       {screen===SCREENS.PAYWALL && <PaywallScreen user={userProfile} onBuy={async(product)=>{ try{ const res=await fetch(`/api/stripe?action=checkout`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({product,user_id:userProfile?.id})}); const d=await res.json(); if(d.url) window.location.href=d.url; }catch(e){alert("Payment failed. Try again.");} }} onBack={()=>setScreen(SCREENS.HOME)} />}
       {screen===SCREENS.GROUP_SETUP && <GroupSetupScreen participants={groupParticipants} setParticipants={setGroupParticipants} topic={topic} setTopic={setTopic} personA={personA} setPersonA={setPersonA} onStart={async()=>{ try{ const res=await fetch('/api/case?action=create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({personAName:personA.name,topic,isGroup:true,participants:groupParticipants.filter(p=>p.name),phoneNumber:''})}); const d=await res.json(); if(d.code){setGroupCode(d.code);setGroupCaseData(d.case);setScreen(SCREENS.GROUP_WAITING);}}catch(e){alert("Failed to create group case.");} }} onBack={()=>setScreen(SCREENS.SETUP)} />}
       {screen===SCREENS.GROUP_WAITING && <GroupWaitingScreen code={groupCode} caseData={groupCaseData} onRefresh={async()=>{ try{ const res=await fetch(`/api/case?code=${groupCode}`); if(res.ok){const d=await res.json();setGroupCaseData(d);}}catch(e){} }} onNudge={async()=>{ try{await fetch(`/api/case?code=${groupCode}&action=nudge`,{method:'POST'});}catch(e){} }} onGetVerdict={()=>getGroupVerdict(groupCaseData)} onBack={()=>setScreen(SCREENS.HOME)} />}
+      {screen===SCREENS.GROUP_SUBMIT && <GroupSubmitScreen code={groupCode||remoteCode} caseData={groupCaseData} onBack={()=>setScreen(SCREENS.HOME)} />}
       {screen===SCREENS.PRIVACY && <PrivacyScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
       {screen===SCREENS.TERMS && <TermsScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
       {/* Join error banner */}
@@ -1258,10 +1296,6 @@ function RemoteWaitingScreen({ code, personA, personB, topic, remoteStatus, onSi
             <p style={{fontSize:12, color:C.textMid, lineHeight:1.6, marginBottom:10}}>Share the code again if they need it:</p>
             <div style={{fontFamily:"monospace", fontSize:32, fontWeight:800, letterSpacing:6, color:C.blue}}>{code}</div>
           </div>
-          {/* Demo button for prototype */}
-          <button style={{...S.btnGhost, fontSize:11, color:C.textLight, borderColor:C.border}} className="pop" onClick={onSimulateB}>
-            🧪 Demo: Simulate Person B submitting
-          </button>
         </>
       )}
 
@@ -1369,7 +1403,7 @@ function RecordScreen({ person, setPerson, name, color, colorLight, emoji, recor
     try {
       const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,messages:[{role:"user",content:`Make this argument cleaner and more persuasive without changing meaning.\n\nArgument: "${person.side}"\n\nRespond ONLY with valid JSON: {"refined":"improved version","what_changed":"one sentence"}`}]})});
       const data = await res.json();
-      setRefined(JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim()));
+      setRefined(JSON.parse(claudeText(data)));
     } catch(e) { setRefined({error:true}); }
     setRefining(false);
   };
@@ -1379,7 +1413,7 @@ function RecordScreen({ person, setPerson, name, color, colorLight, emoji, recor
     try {
       const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:`Suggest 3 additional supporting points.\n\nArgument: "${person.side}"\n${otherPerson?.side?`Other side: "${otherPerson.side}"`:""}\n\nRespond ONLY with valid JSON: {"points":["p1","p2","p3"]}`}]})});
       const data = await res.json();
-      setSuggestedPoints(JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim()).points||[]);
+      setSuggestedPoints(JSON.parse(claudeText(data)).points||[]);
     } catch(e) { setSuggestedPoints([]); }
     setSuggestingPoints(false);
   };
@@ -1693,7 +1727,7 @@ Respond ONLY with valid JSON (no markdown):
 {"title":"short playbook title","steps":[{"step":"Step title","action":"1-2 sentence action item for both parties","who":"both/winner/loser"},{"step":"Step 2","action":"...","who":"both"},{"step":"Step 3","action":"...","who":"both"}],"conversation_starter":"A specific opening line one person can say to start resolving this","ground_rules":["rule 1","rule 2","rule 3"]}`;
       const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tier:"free",max_tokens:800,messages:[{role:"user",content:prompt}]})});
       const data = await res.json();
-      const parsed = JSON.parse(data.content.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim());
+      const parsed = JSON.parse(claudeText(data));
       setPlaybook(parsed);
       setExpanded(true);
     } catch(e) { console.error("Playbook error:",e); }
@@ -2689,6 +2723,100 @@ function GroupSetupScreen({ participants, setParticipants, topic, setTopic, pers
 }
 
 // ── GROUP WAITING SCREEN ──────────────────────────────────────
+function GroupSubmitScreen({ code, caseData: initialCase, onBack }) {
+  const [caseData, setCaseData] = useState(initialCase);
+  const [idx, setIdx] = useState(null);
+  const [side, setSide] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/case?code=${code}`);
+        if (res.ok) { const d = await res.json(); if (active) setCaseData(d); }
+      } catch (e) {}
+    })();
+    return () => { active = false; };
+  }, [code]);
+
+  if (!caseData || !caseData.participants) return <div style={S.screen}><p style={S.sub}>Loading…</p></div>;
+
+  const submit = async () => {
+    if (idx === null || side.length < 50) return;
+    setLoading(true); setErr("");
+    try {
+      const res = await fetch(`/api/case?code=${code}&action=submit_group`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participantIndex: idx, side, clarifyQs: [], clarifyAns: [] }),
+      });
+      const d = await res.json();
+      if (d.error) setErr(d.error); else setDone(true);
+    } catch (e) { setErr("Something went wrong. Try again."); }
+    setLoading(false);
+  };
+
+  if (done) {
+    return (
+      <div style={S.screen} className="fade-in">
+        <div style={{textAlign:"center", paddingTop:24}}>
+          <div style={{fontSize:48, marginBottom:8}}>✅</div>
+          <h2 style={S.title}>Your side is sealed</h2>
+          <p style={S.sub}>Once everyone submits, the group gets its verdict. You can close this page.</p>
+        </div>
+        <button style={{...S.btnGhost, width:"100%"}} className="pop" onClick={onBack}>Done</button>
+      </div>
+    );
+  }
+
+  const total = caseData.participants.length;
+  const submittedCount = caseData.participants.filter(p=>p.submitted).length;
+
+  return (
+    <div style={S.screen} className="fade-in">
+      <div style={{textAlign:"center", paddingTop:16}}>
+        <div style={{fontSize:44, marginBottom:8}}>👥</div>
+        <h2 style={S.title}>Group debate</h2>
+        <p style={S.sub}>Topic: {caseData.topic||"General"} · {submittedCount}/{total} submitted</p>
+      </div>
+      <div style={S.card}>
+        <label style={S.label}>Who are you?</label>
+        <div style={{display:"flex", flexWrap:"wrap", gap:8}}>
+          {caseData.participants.map((p,i)=>(
+            <button key={i} disabled={p.submitted}
+              style={{...S.chip, padding:"8px 14px", fontSize:13,
+                cursor:p.submitted?"default":"pointer",
+                background:idx===i?C.rose:p.submitted?C.tealLight:C.surfaceWarm,
+                color:idx===i?"#fff":p.submitted?C.teal:C.textMid,
+                borderColor:idx===i?C.rose:p.submitted?`${C.teal}40`:C.border,
+                opacity:p.submitted?0.7:1}}
+              className="pop" onClick={()=>{ if(!p.submitted) setIdx(i); }}>
+              {p.name}{p.submitted?" ✓":""}
+            </button>
+          ))}
+        </div>
+      </div>
+      {idx!==null && (
+        <div style={S.card}>
+          <label style={S.label}>Your side</label>
+          <textarea style={S.textarea} placeholder="What's your side of the story?" value={side} onChange={e=>setSide(e.target.value.slice(0,5000))} rows={6} maxLength={5000} />
+          <div style={{display:"flex", justifyContent:"space-between", marginTop:4}}>
+            <span style={{fontSize:10, color:C.textLight}}>Min 50 · Max 5,000 chars</span>
+            <span style={{fontSize:10, fontWeight:600, color:C.textLight}}>{side.length}/5000</span>
+          </div>
+        </div>
+      )}
+      {err && <p style={{fontSize:12, color:C.rose, textAlign:"center", margin:0}}>{err}</p>}
+      <button style={{...S.btnPrimary, opacity:(idx===null||side.length<50||loading)?0.5:1}} className="pop" disabled={idx===null||side.length<50||loading} onClick={submit}>
+        {loading?"Submitting…":(idx!==null&&side.length<50)?`Need ${50-side.length} more chars`:"Seal & Submit"}
+      </button>
+      <button style={{...S.btnGhost, width:"100%"}} className="pop" onClick={onBack}>Back</button>
+    </div>
+  );
+}
+
 function GroupWaitingScreen({ code, caseData, onRefresh, onNudge, onGetVerdict, onBack }) {
   const [nudged, setNudged] = useState(false);
 
