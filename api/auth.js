@@ -64,7 +64,8 @@ async function sendOTP(phone) {
       body: params.toString(),
     });
     const data = await res.json();
-    return { success: res.ok, sid: data.sid };
+    if (!res.ok) console.error("Twilio Verify send error:", res.status, JSON.stringify(data));
+    return { success: res.ok, sid: data.sid, httpStatus: res.status, error: data.message, code: data.code };
   }
 
   // Fallback: generate OTP and send via SMS
@@ -182,7 +183,11 @@ export default async function handler(req, res) {
       const { phone } = body;
       if (!phone || phone.length < 10) return res.status(400).json({ error: "Valid phone number required" });
       const result = await sendOTP(phone);
-      return res.status(200).json({ sent: result.success });
+      if (!result.success) {
+        console.error("send_otp failed:", result.httpStatus, result.code, result.error);
+        return res.status(502).json({ error: result.error || "Could not send the code. Please try again." });
+      }
+      return res.status(200).json({ sent: true });
     }
 
     // ── VERIFY OTP & LOGIN ──
