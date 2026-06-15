@@ -4,7 +4,7 @@
 // Uses Stripe API directly via fetch — no npm dependency
 
 const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY;
-const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
@@ -132,6 +132,25 @@ export default async function handler(req, res) {
 
       const product = session.metadata?.product || "pro_annual";
       const userId = session.metadata?.user_id || session.client_reference_id;
+
+      // Idempotency guard: only fulfill each checkout session once (prevents
+      // double-granting credits when the success page is refreshed).
+      if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+        try {
+          const guard = await fetch(process.env.KV_REST_API_URL, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(["SET", `fulfilled:${session_id}`, "1", "NX", "EX", 2592000]),
+          });
+          const guardData = await guard.json();
+          if (guardData.result === null) {
+            return res.status(200).json({ product, status: "already_fulfilled" });
+          }
+        } catch (e) { /* best-effort: proceed if KV unavailable */ }
+      }
 
       if (userId) {
         if (product === "pro_annual") {

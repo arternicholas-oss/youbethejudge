@@ -7,7 +7,7 @@ const TWILIO_VERIFY_SID = process.env.TWILIO_VERIFY_SID; // Twilio Verify servic
 const TWILIO_PHONE = process.env.TWILIO_PHONE_NUMBER;
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 
 async function redis(cmd, ...args) {
@@ -298,6 +298,15 @@ export default async function handler(req, res) {
 
       const FREE_LIMIT = 3;
       if (used >= FREE_LIMIT) {
+        // Out of free verdicts — consume a purchased bonus verdict if available
+        const bonus = user.bonus_verdicts || 0;
+        if (bonus > 0) {
+          await sb(`/ybtj_users?id=eq.${userId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ bonus_verdicts: bonus - 1 }),
+          });
+          return res.status(200).json({ allowed: true, remaining: 0, used, bonus_remaining: bonus - 1 });
+        }
         return res.status(200).json({ allowed: false, remaining: 0, used, limit: FREE_LIMIT });
       }
 

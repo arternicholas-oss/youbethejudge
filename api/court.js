@@ -2,7 +2,7 @@
 // Handles cases, votes, comments, reports, and likes via Supabase REST API.
 // Routes via ?action= query parameter.
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 
 // Rate limiting
