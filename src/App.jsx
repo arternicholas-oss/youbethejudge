@@ -98,26 +98,7 @@ const DAILY_DEBATES_FALLBACK = [
   { id:"fallback_1", topic:"Who should apologize first after a fight?", options:["The one who started it","The one who escalated it"], votes:[62,38], totalVotes:100 },
 ];
 
-const MOCK_COURT = [
-  { id:1, category:"Relationship", topic:"Who should apologize first", displayA:"Jordan", displayB:"Alex", sideA:"I already said sorry twice. At some point you have to move on.", sideB:"Saying sorry doesn't mean anything if you keep doing the same thing. I need actions, not words.", aiWinner:"B", aiHeadline:"Patterns matter more than apologies.", aiRuling:"Alex correctly identifies that repetitive behavior undermines any apology. Jordan's frustration is understandable but misses the core issue.", votes:{a:31,b:69}, totalVotes:1847, isOwn:false, timeAgo:"2h ago", comments:[] },
-  { id:2, category:"Work", topic:"Taking credit for team work", displayA:"Morgan", displayB:"Riley", sideA:"I was the one who stayed late and finished the presentation. The team didn't show up.", sideB:"It was a team project. One person finishing a slide deck doesn't make it yours.", aiWinner:"B", aiHeadline:"Effort ≠ ownership of a team product.", aiRuling:"Collaborative work requires shared credit by default. Morgan acted unilaterally without team consent.", votes:{a:44,b:56}, totalVotes:923, isOwn:false, timeAgo:"5h ago", comments:[] },
-  { id:3, category:"Money", topic:"Splitting the bill on a first date", displayA:"Sam", displayB:"Taylor", sideA:"I asked them out. I planned it. I should pay.", sideB:"It's 2026. We both ate. Offering to split is respectful.", aiWinner:"Tie", aiHeadline:"Both positions are valid here.", aiRuling:"This is genuinely a matter of cultural expectation. Neither side is objectively wrong.", votes:{a:52,b:48}, totalVotes:3204, isOwn:false, timeAgo:"1d ago", comments:[] },
-  { id:4, category:"Roommates", topic:"Thermostat wars", displayA:"Person A", displayB:"Person B", sideA:"I pay equal rent. I should have equal say over temperature. 74° is not unreasonable.", sideB:"74° in February is insane. I'm sweating in my own home.", aiWinner:"A", aiHeadline:"Equal rent = equal climate rights.", aiRuling:"Person A makes a fair equity argument. Person B can layer up more easily.", votes:{a:61,b:39}, totalVotes:672, isOwn:true, myVote:"a", timeAgo:"3d ago", comments:[] },
-  { id:5, category:"Family", topic:"Holiday plans with in-laws", displayA:"CuriousOtter", displayB:"SpicyPickle", sideA:"We've gone to your family for Christmas three years in a row. It's our turn.", sideB:"My mom is sick. This isn't about tradition, it's about being there for family.", aiWinner:"B", aiHeadline:"Medical circumstances override rotation logic.", aiRuling:"SpicyPickle's reason is circumstantial, not preferential. Compassion takes precedence.", votes:{a:18,b:82}, totalVotes:1103, isOwn:false, timeAgo:"4d ago", comments:[] },
-  { id:6, category:"Relationship", topic:"Reading partner's texts", displayA:"Mia", displayB:"Jake", sideA:"I had a gut feeling something was off. I checked and I was right — there were flirty messages.", sideB:"Privacy is non-negotiable. You could have just asked me. Going through my phone is a dealbreaker.", aiWinner:"B", aiHeadline:"Being right doesn't make the method okay.", aiRuling:"Jake's boundary around privacy is valid regardless of what was found. Trust violations can't be fixed by more trust violations.", votes:{a:41,b:59}, totalVotes:4521, isOwn:false, timeAgo:"6h ago", comments:[] },
-  { id:7, category:"Money", topic:"Lending money to a best friend", displayA:"Dex", displayB:"Priya", sideA:"I lent her $800 six months ago and she hasn't even mentioned paying it back. I shouldn't have to ask.", sideB:"I fully plan to pay it back. Things have been tight. Real friends don't put a timeline on generosity.", aiWinner:"A", aiHeadline:"Six months of silence is not generosity — it's avoidance.", aiRuling:"Dex extended trust and Priya has not communicated proactively about repayment. At minimum, acknowledgment is owed.", votes:{a:73,b:27}, totalVotes:2891, isOwn:false, timeAgo:"12h ago", comments:[] },
-  { id:8, category:"Work", topic:"Quiet quitting vs. loyalty", displayA:"Chris", displayB:"Dana", sideA:"I do exactly what I'm paid for — nothing more, nothing less. That's not quitting, that's having boundaries.", sideB:"Going above and beyond is how you grow. If everyone did the bare minimum, the company would collapse.", aiWinner:"A", aiHeadline:"Employment is a contract, not a loyalty oath.", aiRuling:"Chris is fulfilling the agreed terms of employment. The expectation of unpaid extra effort benefits employers disproportionately.", votes:{a:68,b:32}, totalVotes:5102, isOwn:false, timeAgo:"1d ago", comments:[] },
-  { id:9, category:"Friends", topic:"Showing up late to everything", displayA:"Kai", displayB:"Lena", sideA:"I'm always 10-15 minutes late. It's just how I am. People who know me expect it.", sideB:"Being late every time tells me my time doesn't matter to you. It's disrespectful.", aiWinner:"B", aiHeadline:"Chronic lateness is a choice, not a personality trait.", aiRuling:"Lena correctly identifies that habitual tardiness communicates a lack of respect for others' time, regardless of intent.", votes:{a:12,b:88}, totalVotes:3847, isOwn:false, timeAgo:"2d ago", comments:[] },
-  { id:10, category:"Roommates", topic:"Overnight guests without asking", displayA:"Niko", displayB:"Ava", sideA:"It's my apartment too. I don't need permission to have someone stay over.", sideB:"We share the space. Having a stranger in the living room at 7am without warning crosses a line.", aiWinner:"B", aiHeadline:"Shared space requires shared consent.", aiRuling:"Ava's expectation of advance notice is reasonable. Niko's autonomy doesn't override the shared nature of the living space.", votes:{a:22,b:78}, totalVotes:1956, isOwn:false, timeAgo:"3d ago", comments:[] },
-].map(c => ({ ...c, comments: seedComments(c.id) }));
 
-const mockHistory = [
-  { date:"Apr 3", topic:"Dishes in the sink", winner:"Alex", verdict:"Jordan didn't have a leg to stand on", category:"Chores & Household", scoreA:78, scoreB:34, caseName:"Dishgate" },
-  { date:"Mar 28", topic:"Being late to dinner", winner:"Jordan", verdict:"Alex was being unreasonable", category:"Friends", scoreA:41, scoreB:72, caseName:"The Dinner Incident" },
-  { date:"Mar 15", topic:"Thermostat temperature", winner:"Tie", verdict:"Both need to meet in the middle", category:"Chores & Household", scoreA:55, scoreB:55, caseName:"Thermostatgate" },
-  { date:"Mar 8", topic:"Money for concert tickets", winner:"Jordan", verdict:"Jordan made the stronger financial case", category:"Money & Finances", scoreA:38, scoreB:69, caseName:"TicketGate 2026" },
-  { date:"Feb 22", topic:"Whose turn to cook", winner:"Alex", verdict:"Alex's evidence was undeniable", category:"Chores & Household", scoreA:81, scoreB:29, caseName:"The Kitchen Wars" },
-];
 
 // ── STYLES ─────────────────────────────────────────────────────
 const S = {
@@ -179,13 +160,11 @@ export default function YouBeTheJudge() {
   const [personA, setPersonA] = useState({ name:"", side:"", zodiac:"", mbti:"", loveLanguage:"", attachment:"" });
   const [personB, setPersonB] = useState({ name:"", side:"", zodiac:"", mbti:"", loveLanguage:"", attachment:"" });
   const [topic, setTopic] = useState("");
-  const [usePersonality, setUsePersonality] = useState(false);
-  const [personalityDepth, setPersonalityDepth] = useState("zodiac");
   const [verdict, setVerdict] = useState(null);
   const [loading, setLoading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [activeRecorder, setActiveRecorder] = useState(null);
-  const [history, setHistory] = useState(mockHistory);
+  const [history, setHistory] = useState([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [judgeMode, setJudgeMode] = useState("neutral");
@@ -205,11 +184,7 @@ export default function YouBeTheJudge() {
   const [remoteBClarifyQs, setRemoteBClarifyQs] = useState([]);
   const [remoteBClarifyAns, setRemoteBClarifyAns] = useState([]);
   const [simulatingRemoteB, setSimulatingRemoteB] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id:1, type:"votes", caseId:4, read:false, ts: Date.now()-3600000*2, message:"67 people have now ruled on your argument — Person A leads 61% vs 39%" },
-    { id:2, type:"top_comment", caseId:4, read:false, ts: Date.now()-1800000, message:"Someone wrote a Top Comment on your case: \"Equal rent = equal climate rights 🏆\"" },
-    { id:3, type:"votes", caseId:4, read:true, ts: Date.now()-86400000, message:"Your case hit 500 votes! The crowd is split 61/39." },
-  ]);
+  const [notifications, setNotifications] = useState([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const [joinError, setJoinError] = useState(false);
   const [courtLoading, setCourtLoading] = useState(false);
@@ -509,8 +484,8 @@ export default function YouBeTheJudge() {
           votes:{a:c.votes_a||0, b:c.votes_b||0}, totalVotes:c.total_votes||0,
           isOwn:false, myVote:null, timeAgo: getTimeAgo(c.created_at), comments:[]
         })));
-        else setCourtCases(MOCK_COURT);
-      }).catch(()=>{ setCourtCases(MOCK_COURT); }).finally(()=>setCourtLoading(false));
+        else setCourtCases([]);
+      }).catch(()=>{ setCourtCases([]); }).finally(()=>setCourtLoading(false));
     }
   }, [screen]);
 
@@ -549,6 +524,9 @@ export default function YouBeTheJudge() {
     window.history.pushState({ screen: newScreen }, "");
     setScreenRaw(newScreen);
   };
+
+  // In-app Back: go through browser history so the stack stays consistent
+  const goBack = () => window.history.back();
 
   // Push browser history for SPA nav (with URL path)
   const navigateTo = (newScreen, path) => {
@@ -596,12 +574,7 @@ export default function YouBeTheJudge() {
     if (clarifyAnsA.length) p+=`\nClarifications from A:\n${clarifyQsA.map((q,i)=>`Q: ${q}\nA: ${clarifyAnsA[i]||"(skipped)"}`).join("\n")}`;
     p+=`\n\nPERSON B (${personB.name||"Person B"}): "${personB.side}"`;
     if (clarifyAnsB.length) p+=`\nClarifications from B:\n${clarifyQsB.map((q,i)=>`Q: ${q}\nA: ${clarifyAnsB[i]||"(skipped)"}`).join("\n")}`;
-    if (usePersonality) {
-      if (personalityDepth==="zodiac"||personalityDepth==="full") p+=`\nZodiac: ${personA.name}=${personA.zodiac||"?"}, ${personB.name}=${personB.zodiac||"?"}`;
-      if (personalityDepth==="mbti"||personalityDepth==="full") p+=`\nMBTI: ${personA.name}=${personA.mbti||"?"}, ${personB.name}=${personB.mbti||"?"}`;
-      if (personalityDepth==="full") { p+=`\n${personA.name}: Love Language=${personA.loveLanguage||"?"}, Attachment=${personA.attachment||"?"}`; p+=`\n${personB.name}: Love Language=${personB.loveLanguage||"?"}, Attachment=${personB.attachment||"?"}`; }
-    }
-    p+=`\n\nTONE: ${tones[judgeMode]}\n\nRespond ONLY with valid JSON (no markdown):\n{"winner":"${personA.name||"Person A"} or ${personB.name||"Person B"} or Tie","verdict_headline":"punchy headline under 10 words","ruling":"2-3 sentences","key_deciding_factor":"The single most important reason winner prevailed (1 sentence)","strongest_line":"Most compelling thing said — quote directly under 20 words","person_a_score":0-100,"person_b_score":0-100,"person_a_rationality":0-100,"person_b_rationality":0-100,"a_valid_points":["p1","p2"],"b_valid_points":["p1","p2"],"communication_tip":"one actionable tip","personality_insight":"${usePersonality?"one insight":""}","roast":"${judgeMode==="funny"?"short roast":""}"}`;
+    p+=`\n\nTONE: ${tones[judgeMode]}\n\nRespond ONLY with valid JSON (no markdown):\n{"winner":"${personA.name||"Person A"} or ${personB.name||"Person B"} or Tie","verdict_headline":"punchy headline under 10 words","ruling":"2-3 sentences","key_deciding_factor":"The single most important reason winner prevailed (1 sentence)","strongest_line":"Most compelling thing said — quote directly under 20 words","person_a_score":0-100,"person_b_score":0-100,"person_a_rationality":0-100,"person_b_rationality":0-100,"a_valid_points":["p1","p2"],"b_valid_points":["p1","p2"],"communication_tip":"one actionable tip","personality_insight":"one sharp psychological insight about their dynamic (1 sentence)","roast":"${judgeMode==="funny"?"short roast":""}"}`;
     return p;
   };
 
@@ -907,15 +880,15 @@ export default function YouBeTheJudge() {
     <div style={S.root}>
       <style>{css}</style>
 {screen===SCREENS.HOME && <HomeScreen setScreen={setScreen} history={history} notifications={notifications} showNotifs={showNotifs} setShowNotifs={setShowNotifs} markNotifsRead={markNotifsRead} authUser={authUser} userProfile={userProfile} dailyDebate={dailyDebate} debateVoted={debateVoted} onVoteDebate={voteDebate} debateLoading={debateLoading} />}
-      {screen===SCREENS.MODE_SELECT && <ModeSelectScreen topic={topic} personA={personA} personB={personB} onSamePhone={()=>{setRemoteMode(false);setScreen(SCREENS.RECORD_A);}} onRemote={async()=>{setRemoteMode(true);await generateRemoteCode();setScreen(SCREENS.REMOTE_SEND);}} onBack={()=>setScreen(SCREENS.SETUP)} />}
-      {screen===SCREENS.SETUP && <SetupScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} topic={topic} setTopic={setTopic} usePersonality={usePersonality} setUsePersonality={setUsePersonality} personalityDepth={personalityDepth} setPersonalityDepth={setPersonalityDepth} judgeMode={judgeMode} setJudgeMode={setJudgeMode} setScreen={setScreen} />}
-      {screen===SCREENS.REMOTE_SEND && <RemoteSendScreen code={remoteCode} personA={personA} personB={personB} topic={topic} onBack={()=>setScreen(SCREENS.SETUP)} onRecordMySide={()=>setScreen(SCREENS.RECORD_A)} setPersonB={setPersonB} />}
+      {screen===SCREENS.MODE_SELECT && <ModeSelectScreen topic={topic} personA={personA} personB={personB} onSamePhone={()=>{setRemoteMode(false);setScreen(SCREENS.RECORD_A);}} onRemote={async()=>{setRemoteMode(true);await generateRemoteCode();setScreen(SCREENS.REMOTE_SEND);}} onBack={goBack} />}
+      {screen===SCREENS.SETUP && <SetupScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} topic={topic} setTopic={setTopic} judgeMode={judgeMode} setJudgeMode={setJudgeMode} setScreen={setScreen} />}
+      {screen===SCREENS.REMOTE_SEND && <RemoteSendScreen code={remoteCode} personA={personA} personB={personB} topic={topic} onBack={goBack} onRecordMySide={()=>setScreen(SCREENS.RECORD_A)} setPersonB={setPersonB} />}
       {screen===SCREENS.REMOTE_WAITING && <RemoteWaitingScreen code={remoteCode} personA={personA} personB={personB} topic={topic} remoteStatus={remoteStatus} onSimulateB={()=>{}} onReveal={()=>handleRemoteGetVerdict(remoteBSide, remoteBClarifyQs, remoteBClarifyAns)} />}
       {screen===SCREENS.REMOTE_B_LANDING && <RemoteBLandingScreen code={remoteCode} topic={topic} personBName={personB.name} onStart={()=>setScreen(SCREENS.REMOTE_B_RECORD)} />}
       {screen===SCREENS.REMOTE_B_RECORD && <RemoteBRecordScreen person={personB} setPerson={setPersonB} recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={(side)=>{ getClarifyQuestions(side, personA.side, (qs)=>{ if(qs.length>0){setRemoteBClarifyQs(qs);setRemoteBClarifyAns(new Array(qs.length).fill(""));setScreen(SCREENS.REMOTE_B_CLARIFY);}else{setRemoteBSide(side);submitPersonBToRedis(side);setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}});}} topic={topic} />}
-      {screen===SCREENS.REMOTE_B_CLARIFY && <ClarifyScreen name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" questions={remoteBClarifyQs} answers={remoteBClarifyAns} setAnswers={setRemoteBClarifyAns} onNext={()=>{submitPersonBToRedis();setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}} onBack={()=>setScreen(SCREENS.REMOTE_B_RECORD)} isFinal />}
-      {screen===SCREENS.RECORD_A && <RecordScreen person={personA} setPerson={setPersonA} name={personA.name||"Person A"} color={C.textMid} colorLight={C.surfaceWarm} emoji="A" recording={recording&&activeRecorder==="A"} onStart={()=>startVoice("A")} onStop={stopVoice} onNext={()=>{ if(remoteMode){ getClarifyQuestions(personA.side,"",(qs)=>{ if(qs.length>0){setClarifyQsA(qs);setClarifyAnsA(new Array(qs.length).fill(""));setScreen(SCREENS.CLARIFY_A);}else{submitPersonAToRedis();setScreen(SCREENS.REMOTE_WAITING);}}); }else handleAfterRecordA(); }} nextLoading={clarifyLoading} onBack={()=>setScreen(remoteMode?SCREENS.REMOTE_SEND:SCREENS.SETUP)} otherPerson={personB} topic={topic} />}
-      {screen===SCREENS.CLARIFY_A && <ClarifyScreen name={personA.name||"Person A"} color={C.textMid} colorLight={C.surfaceWarm} emoji="A" questions={clarifyQsA} answers={clarifyAnsA} setAnswers={setClarifyAnsA} onNext={()=>{if(remoteMode){submitPersonAToRedis();setScreen(SCREENS.REMOTE_WAITING);}else{setScreen(SCREENS.HANDOFF);}}} onBack={()=>setScreen(SCREENS.RECORD_A)} />}
+      {screen===SCREENS.REMOTE_B_CLARIFY && <ClarifyScreen name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" questions={remoteBClarifyQs} answers={remoteBClarifyAns} setAnswers={setRemoteBClarifyAns} onNext={()=>{submitPersonBToRedis();setRemoteStatus("submitted");setTimeout(()=>setRemoteStatus("ready"),500);setScreen(SCREENS.REMOTE_WAITING);}} onBack={goBack} isFinal />}
+      {screen===SCREENS.RECORD_A && <RecordScreen person={personA} setPerson={setPersonA} name={personA.name||"Person A"} color={C.textMid} colorLight={C.surfaceWarm} emoji="A" recording={recording&&activeRecorder==="A"} onStart={()=>startVoice("A")} onStop={stopVoice} onNext={()=>{ if(remoteMode){ getClarifyQuestions(personA.side,"",(qs)=>{ if(qs.length>0){setClarifyQsA(qs);setClarifyAnsA(new Array(qs.length).fill(""));setScreen(SCREENS.CLARIFY_A);}else{submitPersonAToRedis();setScreen(SCREENS.REMOTE_WAITING);}}); }else handleAfterRecordA(); }} nextLoading={clarifyLoading} onBack={goBack} otherPerson={personB} topic={topic} />}
+      {screen===SCREENS.CLARIFY_A && <ClarifyScreen name={personA.name||"Person A"} color={C.textMid} colorLight={C.surfaceWarm} emoji="A" questions={clarifyQsA} answers={clarifyAnsA} setAnswers={setClarifyAnsA} onNext={()=>{if(remoteMode){submitPersonAToRedis();setScreen(SCREENS.REMOTE_WAITING);}else{setScreen(SCREENS.HANDOFF);}}} onBack={goBack} />}
       {screen===SCREENS.HANDOFF && (
         <div style={S.screen} className="fade-in">
           <div style={{...S.card, textAlign:'center', padding:'60px 24px', marginTop:60}}>
@@ -926,20 +899,19 @@ export default function YouBeTheJudge() {
           </div>
         </div>
       )}
-      {screen===SCREENS.RECORD_B && <RecordScreen person={personB} setPerson={setPersonB} name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={handleAfterRecordB} nextLoading={clarifyLoading} onBack={()=>clarifyQsA.length>0?setScreen(SCREENS.CLARIFY_A):setScreen(SCREENS.RECORD_A)} isFinal={true} otherPerson={personA} topic={topic} />}
-      {screen===SCREENS.CLARIFY_B && <ClarifyScreen name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" questions={clarifyQsB} answers={clarifyAnsB} setAnswers={setClarifyAnsB} onNext={()=>getVerdict()} onBack={()=>setScreen(SCREENS.RECORD_B)} isFinal />}
-      {screen===SCREENS.PERSONALITY && <PersonalityScreen personA={personA} setPersonA={setPersonA} personB={personB} setPersonB={setPersonB} depth={personalityDepth} onNext={getVerdict} onBack={()=>clarifyQsB.length>0?setScreen(SCREENS.CLARIFY_B):setScreen(SCREENS.RECORD_B)} />}
+      {screen===SCREENS.RECORD_B && <RecordScreen person={personB} setPerson={setPersonB} name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" recording={recording&&activeRecorder==="B"} onStart={()=>startVoice("B")} onStop={stopVoice} onNext={handleAfterRecordB} nextLoading={clarifyLoading} onBack={goBack} isFinal={true} otherPerson={personA} topic={topic} />}
+      {screen===SCREENS.CLARIFY_B && <ClarifyScreen name={personB.name||"Person B"} color={C.textMid} colorLight={C.surfaceWarm} emoji="B" questions={clarifyQsB} answers={clarifyAnsB} setAnswers={setClarifyAnsB} onNext={()=>getVerdict()} onBack={goBack} isFinal />}
       {screen===SCREENS.VERDICT && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={personB} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={reset} onSubmitCourt={submitToCourt} setScreen={setScreen} caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} verdictCardUrl={verdictCardUrl} topic={topic} />}
       {screen===SCREENS.REMOTE_REVEAL && <VerdictScreen verdict={verdict} loading={loading} personA={personA} personB={{...personB,side:remoteBSide}} judgeMode={judgeMode} showConfetti={showConfetti} showShare={showShare} setShowShare={setShowShare} onReset={resetFull} onSubmitCourt={submitToCourt} setScreen={setScreen} isRemote caseName={caseName} setCaseName={setCaseName} onNameCase={(name)=>setHistory(h=>[{...h[0],caseName:name},...h.slice(1)])} verdictCardUrl={verdictCardUrl} topic={topic} />}
-      {screen===SCREENS.HISTORY && <HistoryScreen history={history} onBack={()=>setScreen(SCREENS.HOME)} />}
-      {screen===SCREENS.COURT && <CourtScreen cases={courtCases} loading={courtLoading} onVote={voteOnCase} onSelect={c=>{if(!canViewCommunity()){setCommunityPaywall(true);return;} incrementCommunityViews();setSelectedCase(c);loadCaseDetail(c.id);setScreen(SCREENS.CASE_DETAIL);}} onBack={()=>setScreen(SCREENS.HOME)} authUser={authUser} onSignIn={signInWithGoogle} onSignOut={signOut} showPaywall={communityPaywall} onDismissPaywall={()=>setCommunityPaywall(false)} freeViewsLeft={COMMUNITY_FREE_LIMIT - getCommunityViews()} />}
-      {screen===SCREENS.CASE_DETAIL && currentCourtCase && <CaseDetailScreen c={currentCourtCase} onVote={side=>voteOnCase(currentCourtCase.id,side)} onComment={(text,tag)=>addComment(currentCourtCase.id,text,tag)} onReply={(commentId,text)=>addReply(currentCourtCase.id,commentId,text)} onLike={(commentId)=>toggleLike(currentCourtCase.id,commentId)} onReport={(commentId)=>reportComment(commentId)} reportedComments={reportedComments} onGetAIPicks={()=>getAISmartestComment(currentCourtCase.id,currentCourtCase.comments)} onBack={()=>setScreen(SCREENS.COURT)} judgeMode={judgeMode} authUser={authUser} onSignIn={signInWithGoogle} />}
-      {screen===SCREENS.LOGIN && <LoginScreen loginPhone={loginPhone} setLoginPhone={setLoginPhone} loginStep={loginStep} loginOtp={loginOtp} setLoginOtp={setLoginOtp} loginLoading={loginLoading} loginError={loginError} onSendOtp={()=>sendOtp(loginPhone)} onVerifyOtp={()=>verifyOtp(loginPhone,loginOtp)} onGoogleSignIn={signInWithGoogle} onBack={()=>{setLoginStep("phone");setLoginError("");setScreen(SCREENS.HOME);}} />}
-      {screen===SCREENS.PROFILE && <ProfileScreen user={userProfile} authUser={authUser} onSignOut={signOut} onBack={()=>setScreen(SCREENS.HOME)} onUpdateName={async(name)=>{ try{ const res=await fetch('/api/auth?action=update_profile',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${authToken}`},body:JSON.stringify({display_name:name})}); const d=await res.json(); if(d.user){setUserProfile(d.user);setAuthUser(prev=>({...prev,name:d.user.display_name}));}}catch(e){} }} />}
-      {screen===SCREENS.PAYWALL && <PaywallScreen user={userProfile} onBuy={async(product)=>{ try{ const res=await fetch(`/api/stripe?action=checkout`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({product,user_id:userProfile?.id})}); const d=await res.json(); if(d.url) window.location.href=d.url; }catch(e){alert("Payment failed. Try again.");} }} onBack={()=>setScreen(SCREENS.HOME)} />}
-      {screen===SCREENS.GROUP_SETUP && <GroupSetupScreen participants={groupParticipants} setParticipants={setGroupParticipants} topic={topic} setTopic={setTopic} personA={personA} setPersonA={setPersonA} onStart={async()=>{ try{ const res=await fetch('/api/case?action=create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({personAName:personA.name,topic,isGroup:true,participants:groupParticipants.filter(p=>p.name),phoneNumber:''})}); const d=await res.json(); if(d.code){setGroupCode(d.code);setGroupCaseData(d.case);setScreen(SCREENS.GROUP_WAITING);}}catch(e){alert("Failed to create group case.");} }} onBack={()=>setScreen(SCREENS.SETUP)} />}
-      {screen===SCREENS.GROUP_WAITING && <GroupWaitingScreen code={groupCode} caseData={groupCaseData} onRefresh={async()=>{ try{ const res=await fetch(`/api/case?code=${groupCode}`); if(res.ok){const d=await res.json();setGroupCaseData(d);}}catch(e){} }} onNudge={async()=>{ try{await fetch(`/api/case?code=${groupCode}&action=nudge`,{method:'POST'});}catch(e){} }} onGetVerdict={()=>getGroupVerdict(groupCaseData)} onBack={()=>setScreen(SCREENS.HOME)} />}
-      {screen===SCREENS.GROUP_SUBMIT && <GroupSubmitScreen code={groupCode||remoteCode} caseData={groupCaseData} onBack={()=>setScreen(SCREENS.HOME)} />}
+      {screen===SCREENS.HISTORY && <HistoryScreen history={history} onBack={goBack} />}
+      {screen===SCREENS.COURT && <CourtScreen cases={courtCases} loading={courtLoading} onVote={voteOnCase} onSelect={c=>{if(!canViewCommunity()){setCommunityPaywall(true);return;} incrementCommunityViews();setSelectedCase(c);loadCaseDetail(c.id);setScreen(SCREENS.CASE_DETAIL);}} onBack={goBack} authUser={authUser} onSignIn={signInWithGoogle} onSignOut={signOut} showPaywall={communityPaywall} onDismissPaywall={()=>setCommunityPaywall(false)} freeViewsLeft={COMMUNITY_FREE_LIMIT - getCommunityViews()} />}
+      {screen===SCREENS.CASE_DETAIL && currentCourtCase && <CaseDetailScreen c={currentCourtCase} onVote={side=>voteOnCase(currentCourtCase.id,side)} onComment={(text,tag)=>addComment(currentCourtCase.id,text,tag)} onReply={(commentId,text)=>addReply(currentCourtCase.id,commentId,text)} onLike={(commentId)=>toggleLike(currentCourtCase.id,commentId)} onReport={(commentId)=>reportComment(commentId)} reportedComments={reportedComments} onGetAIPicks={()=>getAISmartestComment(currentCourtCase.id,currentCourtCase.comments)} onBack={goBack} judgeMode={judgeMode} authUser={authUser} onSignIn={signInWithGoogle} />}
+      {screen===SCREENS.LOGIN && <LoginScreen loginPhone={loginPhone} setLoginPhone={setLoginPhone} loginStep={loginStep} loginOtp={loginOtp} setLoginOtp={setLoginOtp} loginLoading={loginLoading} loginError={loginError} onSendOtp={()=>sendOtp(loginPhone)} onVerifyOtp={()=>verifyOtp(loginPhone,loginOtp)} onGoogleSignIn={signInWithGoogle} onBack={()=>{setLoginStep("phone");setLoginError("");goBack();}} />}
+      {screen===SCREENS.PROFILE && <ProfileScreen user={userProfile} authUser={authUser} onSignOut={signOut} onBack={goBack} onUpdateName={async(name)=>{ try{ const res=await fetch('/api/auth?action=update_profile',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${authToken}`},body:JSON.stringify({display_name:name})}); const d=await res.json(); if(d.user){setUserProfile(d.user);setAuthUser(prev=>({...prev,name:d.user.display_name}));}}catch(e){} }} />}
+      {screen===SCREENS.PAYWALL && <PaywallScreen user={userProfile} onBuy={async(product)=>{ try{ const res=await fetch(`/api/stripe?action=checkout`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({product,user_id:userProfile?.id})}); const d=await res.json(); if(d.url) window.location.href=d.url; }catch(e){alert("Payment failed. Try again.");} }} onBack={goBack} />}
+      {screen===SCREENS.GROUP_SETUP && <GroupSetupScreen participants={groupParticipants} setParticipants={setGroupParticipants} topic={topic} setTopic={setTopic} personA={personA} setPersonA={setPersonA} onStart={async()=>{ try{ const res=await fetch('/api/case?action=create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({personAName:personA.name,topic,isGroup:true,participants:groupParticipants.filter(p=>p.name),phoneNumber:''})}); const d=await res.json(); if(d.code){setGroupCode(d.code);setGroupCaseData(d.case);setScreen(SCREENS.GROUP_WAITING);}}catch(e){alert("Failed to create group case.");} }} onBack={goBack} />}
+      {screen===SCREENS.GROUP_WAITING && <GroupWaitingScreen code={groupCode} caseData={groupCaseData} onRefresh={async()=>{ try{ const res=await fetch(`/api/case?code=${groupCode}`); if(res.ok){const d=await res.json();setGroupCaseData(d);}}catch(e){} }} onNudge={async()=>{ try{await fetch(`/api/case?code=${groupCode}&action=nudge`,{method:'POST'});}catch(e){} }} onGetVerdict={()=>getGroupVerdict(groupCaseData)} onBack={goBack} />}
+      {screen===SCREENS.GROUP_SUBMIT && <GroupSubmitScreen code={groupCode||remoteCode} caseData={groupCaseData} onBack={goBack} />}
       {screen===SCREENS.PRIVACY && <PrivacyScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
       {screen===SCREENS.TERMS && <TermsScreen onBack={()=>navigateTo(SCREENS.HOME,"/")} />}
       {/* Join error banner */}
@@ -1089,7 +1061,7 @@ function HomeScreen({ setScreen, history, notifications, showNotifs, setShowNoti
 }
 
 // ── SETUP ──────────────────────────────────────────────────────
-function SetupScreen({ personA, setPersonA, personB, setPersonB, topic, setTopic, usePersonality, setUsePersonality, personalityDepth, setPersonalityDepth, judgeMode, setJudgeMode, setScreen }) {
+function SetupScreen({ personA, setPersonA, personB, setPersonB, topic, setTopic, judgeMode, setJudgeMode, setScreen }) {
   const MODES = [{id:"neutral",icon:"⚖️",label:"Neutral Judge",desc:"Calm, fair, impartial"},{id:"funny",icon:"😂",label:"Funny Roast",desc:"Witty ruling + roasts the loser"}];
   return (
     <div style={S.screen} className="fade-in">
@@ -1519,30 +1491,6 @@ function ClarifyScreen({ name, color, colorLight, emoji, questions, answers, set
 }
 
 // ── PERSONALITY ────────────────────────────────────────────────
-function PersonalityScreen({ personA, setPersonA, personB, setPersonB, depth, onNext, onBack }) {
-  const Sel = ({label,value,onChange,options})=>(<div style={{marginBottom:10}}><label style={{...S.label,fontSize:9}}>{label}</label><select style={S.input} value={value} onChange={e=>onChange(e.target.value)}><option value="">Select...</option>{options.map(o=><option key={o} value={o}>{o}</option>)}</select></div>);
-  return (
-    <div style={S.screen} className="fade-in">
-      <div style={{textAlign:"center", paddingTop:12}}><h2 style={S.title}>Personality Profiles 🔮</h2><p style={S.sub}>Help the judge understand who you really are</p></div>
-      <div style={S.twoCol}>
-        <div style={{...S.card, borderTop:`3px solid ${C.border}`}}>
-          <label style={{...S.label, color:C.text}}>{personA.name||"Person A"}</label>
-          {(depth==="zodiac"||depth==="full")&&<Sel label="Zodiac ✨" value={personA.zodiac} onChange={v=>setPersonA(p=>({...p,zodiac:v}))} options={ZODIAC} />}
-          {(depth==="mbti"||depth==="full")&&<Sel label="MBTI 🧠" value={personA.mbti} onChange={v=>setPersonA(p=>({...p,mbti:v}))} options={MBTI} />}
-          {depth==="full"&&<><Sel label="Love Language 💛" value={personA.loveLanguage} onChange={v=>setPersonA(p=>({...p,loveLanguage:v}))} options={LOVE_LANGS} /><Sel label="Attachment 🔗" value={personA.attachment} onChange={v=>setPersonA(p=>({...p,attachment:v}))} options={ATTACHMENT} /></>}
-        </div>
-        <div style={{...S.card, borderTop:`3px solid ${C.border}`}}>
-          <label style={{...S.label, color:C.text}}>{personB.name||"Person B"}</label>
-          {(depth==="zodiac"||depth==="full")&&<Sel label="Zodiac ✨" value={personB.zodiac} onChange={v=>setPersonB(p=>({...p,zodiac:v}))} options={ZODIAC} />}
-          {(depth==="mbti"||depth==="full")&&<Sel label="MBTI 🧠" value={personB.mbti} onChange={v=>setPersonB(p=>({...p,mbti:v}))} options={MBTI} />}
-          {depth==="full"&&<><Sel label="Love Language 💛" value={personB.loveLanguage} onChange={v=>setPersonB(p=>({...p,loveLanguage:v}))} options={LOVE_LANGS} /><Sel label="Attachment 🔗" value={personB.attachment} onChange={v=>setPersonB(p=>({...p,attachment:v}))} options={ATTACHMENT} /></>}
-        </div>
-      </div>
-      <div style={S.btnRow}><button style={S.btnGhost} className="pop" onClick={onBack}>← Back</button><button style={{...S.btnPrimary, flex:1}} className="pop" onClick={onNext}>⚖️ Get the Verdict</button></div>
-    </div>
-  );
-}
-
 // ── VERDICT ────────────────────────────────────────────────────
 function VerdictScreen({ verdict, loading, personA, personB, judgeMode, showConfetti, showShare, setShowShare, onReset, onSubmitCourt, setScreen, isRemote, caseName, setCaseName, onNameCase, verdictCardUrl, topic }) {
   const [submitModal, setSubmitModal] = useState(false);
