@@ -50,6 +50,16 @@ function generateToken() {
 }
 
 // Send OTP via Twilio Verify (or fallback to direct SMS)
+function normalizePhone(raw) {
+  if (!raw) return raw;
+  const t = String(raw).trim();
+  if (t.startsWith("+")) return "+" + t.slice(1).replace(/\D/g, "");
+  const d = t.replace(/\D/g, "");
+  if (d.length === 10) return "+1" + d;                 // US/CA, no country code
+  if (d.length === 11 && d.startsWith("1")) return "+" + d;
+  return "+" + d;                                        // best effort
+}
+
 async function sendOTP(phone) {
   // Use Twilio Verify API if configured
   if (TWILIO_VERIFY_SID) {
@@ -180,8 +190,8 @@ export default async function handler(req, res) {
 
     // ── SEND OTP ──
     if (action === "send_otp" && req.method === "POST") {
-      const { phone } = body;
-      if (!phone || phone.length < 10) return res.status(400).json({ error: "Valid phone number required" });
+      const phone = normalizePhone(body.phone);
+      if (!phone || phone.replace(/\D/g, "").length < 10) return res.status(400).json({ error: "Valid phone number required" });
       const result = await sendOTP(phone);
       if (!result.success) {
         console.error("send_otp failed:", result.httpStatus, result.code, result.error);
@@ -192,7 +202,8 @@ export default async function handler(req, res) {
 
     // ── VERIFY OTP & LOGIN ──
     if (action === "verify_otp" && req.method === "POST") {
-      const { phone, code } = body;
+      const phone = normalizePhone(body.phone);
+      const { code } = body;
       if (!phone || !code) return res.status(400).json({ error: "Phone and code required" });
 
       const valid = await verifyOTP(phone, code);
